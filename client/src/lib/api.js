@@ -1,0 +1,27 @@
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+async function request(path, body) {
+  const response = await fetch(`${API_URL}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    throw new Error('Le serveur GlutiSafe ne répond pas correctement.');
+  }
+
+  return response.json();
+}
+
+export function analyzeText(text) {
+  return request('/api/analyze', { text });
+}
+
+export function explainAnalysis(payload) {
+  return request('/api/explain', payload);
+}
+
+export function fullAnalysis(text) {
+  return request('/api/full-analysis', { text });
+}

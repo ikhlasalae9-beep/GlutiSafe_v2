@@ -1,0 +1,88 @@
+# GlutiSafe
+
+GlutiSafe is a React, Node, and Python app for extracting visible ingredient text and checking it for possible gluten risk.
+
+## Architecture
+
+- `client/`: React + Vite frontend on `http://localhost:5173`
+- `server/`: Node/Express analysis backend on `http://localhost:5000`
+- `ocr-service/`: Python FastAPI EasyOCR service on `http://localhost:8000`
+
+Image flow:
+
+1. React sends an uploaded image or camera photo to `POST http://localhost:8000/ocr/extract`.
+2. The OCR service extracts text with EasyOCR.
+3. React displays the editable extracted text.
+4. React sends final text to `POST http://localhost:5000/api/full-analysis`.
+5. Node runs the local gluten rule engine.
+6. Node uses Gemini only for a short explanation of the already-decided result, or returns a local fallback if Gemini is unavailable.
+
+The verdict always comes from the rule engine. Gemini is never used for OCR, and the Gemini API key is never exposed to the frontend.
+
+## Frontend Setup
+
+```bash
+cd client
+npm install
+npm run dev
+```
+
+Create `client/.env` from `client/.env.example`:
+
+```env
+VITE_API_URL=http://localhost:5000
+VITE_OCR_API_URL=http://localhost:8000
+```
+
+## Backend Setup
+
+```bash
+cd server
+npm install
+npm run dev
+```
+
+Create `server/.env` from `server/.env.example`:
+
+```env
+PORT=5000
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-2.5-flash
+```
+
+Manual input and rule-based analysis work even if Gemini is unavailable.
+
+## OCR Service Setup
+
+```bash
+cd ocr-service
+pip install -r requirements.txt
+uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Create `ocr-service/.env` from `ocr-service/.env.example`:
+
+```env
+OCR_LANGS=fr,en,es,ch_sim
+OCR_GPU=false
+OCR_MODEL_DIR=./models
+OCR_TEMP_DIR=./tmp
+OCR_CORS_ORIGINS=http://localhost:5173
+```
+
+## API Endpoints
+
+- `GET http://localhost:5000/api/health`
+- `POST http://localhost:5000/api/analyze`
+- `POST http://localhost:5000/api/explain`
+- `POST http://localhost:5000/api/full-analysis`
+- `GET http://localhost:8000/health`
+- `GET http://localhost:8000/ocr/status`
+- `POST http://localhost:8000/ocr/extract`
+
+## Safety
+
+- GlutiSafe does not provide medical diagnosis.
+- GlutiSafe does not certify that a product is gluten-free.
+- OCR can make mistakes, especially with blurry or cropped photos.
+- Users should always verify the official label and manufacturer information.
