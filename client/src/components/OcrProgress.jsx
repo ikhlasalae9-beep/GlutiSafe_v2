@@ -1,16 +1,21 @@
 export default function OcrProgress({ progress, error, active }) {
   if (!progress && !error && !active) return null;
 
+  const width = `${Math.max(progress, active ? 38 : 0)}%`;
+
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+    <div className="soft-card p-4">
       <div className="flex items-center justify-between gap-4">
-        <p className="text-sm font-black text-slate-950">Progression OCR</p>
-        <p className="text-sm font-bold text-emerald-700">{active ? 'EasyOCR' : `${progress}%`}</p>
+        <div>
+          <p className="text-sm font-bold text-[#1d252b]">Progression OCR</p>
+          <p className="mt-1 text-xs font-semibold text-slate-500">EasyOCR lit le texte visible sur l'image.</p>
+        </div>
+        <p className="text-sm font-bold text-[#008f45]">{active ? 'En cours' : `${progress}%`}</p>
       </div>
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
-        <div className="h-full rounded-full bg-emerald-600 transition-all" style={{ width: `${Math.max(progress, active ? 35 : 0)}%` }} />
+      <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-[#edf3ed]">
+        <div className="h-full rounded-full bg-[#008f45] transition-all duration-500" style={{ width }} />
       </div>
-      {error && <p className="mt-3 text-sm font-semibold text-red-600">{error}</p>}
+      {error ? <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{error}</p> : null}
     </div>
   );
 }

@@ -11,7 +11,7 @@ pip install -r requirements.txt
 Copy `.env.example` to `.env` or export the variables in your shell:
 
 ```env
-OCR_LANGS=fr,en,es,ch_sim
+OCR_LANGS=fr,en,es
 OCR_GPU=false
 OCR_MODEL_DIR=./models
 OCR_TEMP_DIR=./tmp
@@ -19,6 +19,12 @@ OCR_CORS_ORIGINS=http://localhost:5173
 ```
 
 `OCR_GPU=false` is the default local CPU mode.
+
+For Chinese OCR, EasyOCR requires simplified Chinese to be paired only with English:
+
+```env
+OCR_LANGS=ch_sim,en
+```
 
 ## Run
 

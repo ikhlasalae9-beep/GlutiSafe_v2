@@ -1,0 +1,22 @@
+<svg width="720" height="560" viewBox="0 0 720 560" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Scanner GlutiSafe</title>
+  <desc id="desc">Illustration d'une étiquette produit scannée avec un symbole sans gluten.</desc>
+  <path d="M92 92C160 20 299 28 361 86C421 142 500 115 585 151C668 187 696 281 664 363C630 450 534 511 420 520C304 529 179 511 99 439C21 367 20 168 92 92Z" fill="#F7F8F6"/>
+  <path d="M148 135C229 97 314 104 389 143C469 185 543 179 601 218" stroke="#DDEADD" stroke-width="3" stroke-linecap="round" opacity=".7"/>
+  <path d="M114 216C213 176 326 180 422 221C505 256 582 253 650 228" stroke="#E6EEE6" stroke-width="3" stroke-linecap="round"/>
+  <rect x="185" y="84" width="264" height="390" rx="42" fill="#1D252B"/>
+  <rect x="205" y="112" width="224" height="330" rx="28" fill="#FFFFFF"/>
+  <rect x="236" y="150" width="162" height="220" rx="20" fill="#F7F8F6" stroke="#DFE8DF" stroke-width="3"/>
+  <path d="M264 197H370M264 229H354M264 261H382M264 293H340" stroke="#8A9691" stroke-width="10" stroke-linecap="round"/>
+  <rect x="248" y="328" width="138" height="24" rx="12" fill="#E8F4E8"/>
+  <path d="M238 174V145H267M396 174V145H367M238 346V375H267M396 346V375H367" stroke="#008F45" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="430" cy="352" r="84" fill="#FFFFFF" stroke="#DFE8DF" stroke-width="4"/>
+  <path d="M392 354L421 383L479 313" stroke="#008F45" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M436 260C434 227 449 200 477 184C505 211 503 246 480 274" fill="#A8CFA5" opacity=".75"/>
+  <path d="M432 260C411 237 380 230 351 242C357 278 385 296 421 290" fill="#A8CFA5" opacity=".55"/>
+  <path d="M458 160C458 137 469 116 489 104C508 124 506 150 488 170" fill="#008F45" opacity=".9"/>
+  <path d="M451 166C433 151 410 147 389 156C394 182 415 195 441 191" fill="#008F45" opacity=".75"/>
+  <path d="M506 423C559 389 600 340 627 276" stroke="#A8CFA5" stroke-width="18" stroke-linecap="round" opacity=".45"/>
+  <circle cx="534" cy="148" r="38" fill="#E8F4E8"/>
+  <path d="M516 148H552M534 130V166" stroke="#008F45" stroke-width="8" stroke-linecap="round"/>
+</svg>

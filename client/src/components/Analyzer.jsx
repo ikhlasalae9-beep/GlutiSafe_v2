@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Keyboard } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Keyboard, ScanLine, ShieldCheck } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { fullAnalysis } from '../lib/api.js';
 import { saveAnalysis, textPreview } from '../lib/history.js';
 import { extractTextWithEasyOCR } from '../lib/ocrApi.js';
+import CameraCapture from './CameraCapture.jsx';
 import ExtractedTextEditor from './ExtractedTextEditor.jsx';
 import ImageUploader from './ImageUploader.jsx';
 import InputMethodTabs from './InputMethodTabs.jsx';
@@ -13,6 +14,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
   const [method, setMethod] = useState('upload');
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState('');
+  const [imageData, setImageData] = useState('');
   const [text, setText] = useState('');
   const [progress, setProgress] = useState(0);
   const [ocrError, setOcrError] = useState('');
@@ -22,19 +24,14 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState('');
   const [saved, setSaved] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
 
   const isImageMode = useMemo(() => method === 'upload' || method === 'camera', [method]);
 
-  useEffect(() => {
-    return () => {
-      if (preview) URL.revokeObjectURL(preview);
-    };
-  }, [preview]);
-
   function resetAll() {
-    if (preview) URL.revokeObjectURL(preview);
     setFile(null);
     setPreview('');
+    setImageData('');
     setText('');
     setProgress(0);
     setOcrError('');
@@ -55,18 +52,29 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
     onResult(null);
   }
 
-  function handleFileChange(event) {
+  async function handleFileChange(event) {
     const selected = event.target.files?.[0];
     if (!selected) return;
-    if (preview) URL.revokeObjectURL(preview);
+    await setSelectedImage(selected);
+    event.target.value = '';
+  }
+
+  async function setSelectedImage(selected, dataUrl) {
+    const nextPreview = dataUrl || (await fileToDataUrl(selected));
     setFile(selected);
-    setPreview(URL.createObjectURL(selected));
+    setPreview(nextPreview);
+    setImageData(nextPreview);
     setText('');
     setOcrError('');
     setOcrWarning('');
     setOcrEngine('');
     setProgress(0);
+    setSaved(false);
     onResult(null);
+  }
+
+  function handleCameraCapture(selected, dataUrl) {
+    setSelectedImage(selected, dataUrl);
   }
 
   async function handleExtract() {
@@ -109,9 +117,9 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
 
     try {
       const result = await fullAnalysis(text);
-      onResult({ ...result, text, inputType: method });
+      onResult({ ...result, text, inputType: method, imageData });
     } catch (error) {
-      setAnalysisError(error.message || 'Impossible d’analyser les ingrédients pour le moment.');
+      setAnalysisError(error.message || "Impossible d'analyser les ingrédients pour le moment.");
     } finally {
       setIsAnalyzing(false);
     }
@@ -125,104 +133,132 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
       fullText: latestResult.text,
       analysis: latestResult.analysis,
       explanation: latestResult.explanation,
+      imageData: latestResult.imageData || imageData,
     });
     setSaved(true);
   }
 
   return (
-    <section id="analyse" className="page-shell py-14">
-      <div className="mb-8 max-w-3xl">
-        <p className="text-sm font-black uppercase tracking-[0.18em] text-emerald-700">Analyse</p>
-        <h1 className="mt-3 text-3xl font-black text-slate-950 sm:text-4xl">Analyser un produit</h1>
-        <p className="mt-4 text-base leading-7 text-slate-600">
-          Importez une image, prenez une photo ou saisissez les ingrédients manuellement. Le verdict vient toujours du
-          moteur de règles.
-        </p>
-        <p className="mt-2 text-sm font-bold text-emerald-700">Langues supportées : Français, Anglais, Espagnol, Chinois</p>
+    <section className="page-shell page-section">
+      <div className="mb-8 grid gap-5 lg:grid-cols-[1fr_0.78fr] lg:items-end">
+        <div>
+          <p className="brand-kicker">Analyse produit</p>
+          <h1 className="mt-3 brand-heading">Scannez une étiquette, vérifiez le risque gluten.</h1>
+          <p className="mt-4 brand-copy max-w-3xl">
+            Importez une photo, ouvrez la caméra ou saisissez les ingrédients. GlutiSafe garde le même flux OCR et le
+            même moteur de règles, avec une interface plus claire.
+          </p>
+        </div>
+        <div className="grid grid-cols-3 gap-2 rounded-[1.5rem] border border-[#dfe8df] bg-white/80 p-3 shadow-sm">
+          <MiniMetric icon={ScanLine} label="OCR" value={ocrEngine || 'EasyOCR'} />
+          <MiniMetric icon={ShieldCheck} label="Verdict" value="Règles" />
+          <MiniMetric icon={CheckCircle2} label="Langues" value="FR EN ES" />
+        </div>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-[1fr_0.92fr]">
-        <div className="glass-card rounded-3xl p-5 sm:p-7">
-          <InputMethodTabs value={method} onChange={handleMethodChange} />
-          <div className="mt-6 space-y-5">
-            {isImageMode ? (
-              <>
-                <ImageUploader
-                  mode={method}
-                  preview={preview}
-                  isExtracting={isExtracting}
-                  onFileChange={handleFileChange}
-                  onExtract={handleExtract}
-                />
-                {ocrEngine && !ocrWarning && (
-                  <p className="inline-flex min-h-10 items-center rounded-xl border border-emerald-200 bg-emerald-50 px-4 text-sm font-bold text-emerald-800">
-                    OCR utilisé : {ocrEngine}
-                  </p>
-                )}
-                <OcrProgress progress={progress} error={ocrError} active={isExtracting} />
-                {ocrWarning && (
-                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                    <div className="flex items-start gap-3">
-                      <AlertTriangle className="mt-0.5 shrink-0 text-amber-700" size={20} />
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold leading-6 text-amber-900">{ocrWarning}</p>
-                        <button
-                          type="button"
-                          onClick={switchToManualInput}
-                          className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-amber-900 px-4 text-sm font-black text-white transition hover:bg-amber-800"
-                        >
-                          <Keyboard size={18} />
-                          Passer à la saisie manuelle
-                        </button>
+      <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+        <div className="surface-card organic-panel p-5 sm:p-6">
+          <div className="relative">
+            <InputMethodTabs value={method} onChange={handleMethodChange} />
+            <div className="mt-6 space-y-5">
+              {isImageMode ? (
+                <>
+                  <ImageUploader
+                    mode={method}
+                    preview={preview}
+                    isExtracting={isExtracting}
+                    onFileChange={handleFileChange}
+                    onExtract={handleExtract}
+                    onCameraOpen={() => setCameraOpen(true)}
+                  />
+                  {ocrEngine && !ocrWarning ? (
+                    <p className="inline-flex min-h-10 items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 text-sm font-bold text-emerald-800">
+                      <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                      OCR utilisé : {ocrEngine}
+                    </p>
+                  ) : null}
+                  <OcrProgress progress={progress} error={ocrError} active={isExtracting} />
+                  {ocrWarning ? (
+                    <div className="rounded-[1.25rem] border border-amber-200 bg-amber-50 p-4">
+                      <div className="flex items-start gap-3">
+                        <AlertTriangle className="mt-0.5 shrink-0 text-amber-700" size={20} aria-hidden="true" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold leading-6 text-amber-900">{ocrWarning}</p>
+                          <button type="button" onClick={switchToManualInput} className="secondary-btn mt-4">
+                            <Keyboard size={18} aria-hidden="true" />
+                            Passer à la saisie manuelle
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
-                {(text || ocrError) && (
-                  <ExtractedTextEditor text={text} onChange={setText} onAnalyze={handleAnalyze} onReset={resetAll} loading={isAnalyzing} />
-                )}
-              </>
-            ) : (
-              <ExtractedTextEditor
-                title="Saisie manuelle"
-                text={text}
-                onChange={setText}
-                onAnalyze={handleAnalyze}
-                onReset={resetAll}
-                loading={isAnalyzing}
-              />
-            )}
-            {analysisError && <p className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">{analysisError}</p>}
+                  ) : null}
+                  {(text || ocrError) && (
+                    <ExtractedTextEditor text={text} onChange={setText} onAnalyze={handleAnalyze} onReset={resetAll} loading={isAnalyzing} />
+                  )}
+                </>
+              ) : (
+                <ExtractedTextEditor
+                  title="Saisie manuelle"
+                  text={text}
+                  onChange={setText}
+                  onAnalyze={handleAnalyze}
+                  onReset={resetAll}
+                  loading={isAnalyzing}
+                />
+              )}
+              {analysisError ? (
+                <p className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">{analysisError}</p>
+              ) : null}
+            </div>
           </div>
         </div>
 
         <div className="space-y-5">
-          {latestResult ? (
+              {latestResult ? (
             <ResultCard
               analysis={latestResult.analysis}
               explanation={latestResult.explanation}
+              text={latestResult.text}
               onSave={handleSave}
               saved={saved}
               onNew={resetAll}
-              onHistory={() => onNavigate('historique')}
+              onHistory={() => onNavigate?.('/history')}
             />
           ) : (
-            <div className="rounded-3xl border border-slate-200 bg-white p-7 shadow-sm">
-              <h2 className="text-2xl font-black text-slate-950">Résultat de l’analyse</h2>
+            <div className="surface-card p-6">
+              <p className="brand-kicker">Résultat</p>
+              <h2 className="mt-2 text-2xl font-extrabold text-[#1d252b]">Prêt pour l'analyse</h2>
               <p className="mt-3 text-sm leading-6 text-slate-600">
-                Le résultat apparaîtra ici avec le statut, la confiance, les mots détectés et une explication prudente.
+                Le résultat apparaîtra ici après l'analyse, avec le verdict, les mots détectés et une explication prudente.
               </p>
-              <div className="mt-6 grid gap-3">
-                {['Contient du gluten', 'Risque possible', 'Aucun gluten détecté', 'Information insuffisante'].map((label) => (
-                  <div key={label} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">
-                    {label}
-                  </div>
-                ))}
+              <div className="mt-6 rounded-[1.5rem] border border-dashed border-[#a8cfa5] bg-[#f7f8f6] p-6 text-center">
+                <ShieldCheck className="mx-auto h-10 w-10 text-[#a8cfa5]" aria-hidden="true" />
+                <p className="mt-3 text-sm font-semibold text-slate-500">Aucun verdict affiché avant l'analyse.</p>
               </div>
             </div>
           )}
         </div>
       </div>
+      <CameraCapture open={cameraOpen} onClose={() => setCameraOpen(false)} onCapture={handleCameraCapture} />
     </section>
   );
+}
+
+function MiniMetric({ icon: Icon, label, value }) {
+  return (
+    <div className="rounded-2xl bg-[#f7f8f6] p-3 text-center">
+      <Icon className="mx-auto h-4 w-4 text-[#008f45]" aria-hidden="true" />
+      <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p>
+      <p className="mt-1 truncate text-sm font-bold text-[#1d252b]">{value}</p>
+    </div>
+  );
+}
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error("Impossible de préparer l'aperçu de l'image."));
+    reader.readAsDataURL(file);
+  });
 }

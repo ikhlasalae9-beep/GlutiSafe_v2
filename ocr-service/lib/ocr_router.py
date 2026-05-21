@@ -15,7 +15,19 @@ def parse_bool(value: str | None, default: bool = False) -> bool:
 
 def parse_langs(value: str | None) -> list[str]:
     langs = [lang.strip() for lang in (value or "fr,en").split(",") if lang.strip()]
-    return langs or ["fr", "en"]
+    if not langs:
+        return ["fr", "en"]
+
+    normalized = []
+    for lang in langs:
+        if lang not in normalized:
+            normalized.append(lang)
+
+    if "ch_sim" in normalized:
+        # EasyOCR only allows simplified Chinese with English in a single reader.
+        return ["ch_sim", "en"]
+
+    return normalized
 
 
 class OCRRouter:

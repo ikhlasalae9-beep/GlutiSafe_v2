@@ -1,80 +1,122 @@
-import { AlertTriangle, Bot, CheckCircle2, Sparkles } from 'lucide-react';
-
-const statusStyles = {
-  danger: {
-    label: 'Gluten Detected',
-    icon: AlertTriangle,
-    badge: 'bg-red-50 text-red-700 ring-red-200',
-    panel: 'border-red-200 bg-red-50/70',
-    dot: 'bg-red-500',
-  },
-  safe: {
-    label: 'Safe',
-    icon: CheckCircle2,
-    badge: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-    panel: 'border-emerald-200 bg-emerald-50/70',
-    dot: 'bg-emerald-500',
-  },
-};
+import { Bot, RefreshCw, Save, ShieldCheck } from 'lucide-react';
+import { confidenceLabel, getStatusStyle } from '../lib/status.js';
+import RiskBadges from './RiskBadges.jsx';
 
 export default function ResultCard({
-  status = 'danger',
-  ingredients = ['Wheat', 'Malt'],
-  explanation = 'Attention! This product contains wheat and malt, two ingredients commonly associated with gluten. Please choose another option or confirm with the product manufacturer before consuming.',
+  analysis,
+  explanation,
+  text,
+  status,
+  ingredients = [],
+  onSave,
+  saved,
+  onNew,
+  onHistory,
 }) {
-  const style = statusStyles[status];
+  const normalizedAnalysis = analysis || legacyAnalysis(status, ingredients);
+  const style = getStatusStyle(normalizedAnalysis.status);
   const StatusIcon = style.icon;
+  const detectedWords = normalizedAnalysis.detectedWords || [];
+  const possibleWords = normalizedAnalysis.possibleWords || [];
+  const safeClaims = normalizedAnalysis.safeClaims || [];
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/60 sm:p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">Scan result</p>
-          <div className="mt-2 flex items-center gap-3">
-            <span className={`flex h-11 w-11 items-center justify-center rounded-xl ${style.badge}`}>
-              <StatusIcon className="h-6 w-6" aria-hidden="true" />
+    <section className="surface-card overflow-hidden">
+      <div className={`border-b px-5 py-5 sm:px-6 ${style.card}`}>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex gap-4">
+            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white shadow-sm">
+              <StatusIcon className="h-7 w-7" style={{ color: style.accent }} aria-hidden="true" />
             </span>
             <div>
-              <h2 className="text-2xl font-black text-slate-950">{style.label}</h2>
-              <p className="text-sm text-slate-500">Review the highlighted ingredients below.</p>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] opacity-80">Résultat GlutiSafe</p>
+              <h2 className="mt-2 text-2xl font-extrabold text-[#1d252b] sm:text-3xl">
+                {normalizedAnalysis.label || style.label}
+              </h2>
+              <p className="mt-2 text-sm font-semibold opacity-80">{style.tone}</p>
             </div>
           </div>
-        </div>
-
-        <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-bold ring-1 ${style.badge}`}>
-          <span className={`h-2.5 w-2.5 rounded-full ${style.dot}`} aria-hidden="true" />
-          {style.label}
-        </span>
-      </div>
-
-      <div className="mt-6">
-        <p className="text-sm font-bold text-slate-700">Detected ingredients</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {ingredients.map((ingredient) => (
-            <span
-              key={ingredient}
-              className="rounded-full bg-slate-100 px-3 py-1.5 text-sm font-semibold text-slate-700 ring-1 ring-slate-200"
-            >
-              {ingredient}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      <div className={`mt-6 rounded-xl border p-4 ${style.panel}`}>
-        <div className="flex items-start gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-teal-600 shadow-sm">
-            <Bot className="h-5 w-5" aria-hidden="true" />
+          <span className={`status-pill bg-white/80 ${style.badge}`}>
+            <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+            Confiance {confidenceLabel(normalizedAnalysis.confidence)}
           </span>
-          <div>
-            <div className="flex items-center gap-2">
-              <p className="font-black text-slate-950">Our AI Assistant</p>
-              <Sparkles className="h-4 w-4 text-cyan-500" aria-hidden="true" />
+        </div>
+      </div>
+
+      <div className="grid gap-5 p-5 sm:p-6">
+        <div className="soft-card p-5">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <p className="brand-kicker">Éléments détectés</p>
+              <h3 className="mt-1 text-xl font-extrabold text-[#1d252b]">Lecture des ingrédients</h3>
             </div>
-            <p className="mt-1 leading-7 text-slate-700">{explanation}</p>
+          </div>
+          <RiskBadges detectedWords={detectedWords} possibleWords={possibleWords} safeClaims={safeClaims} />
+        </div>
+
+        {text ? (
+          <div className="soft-card p-5">
+            <p className="brand-kicker">Texte extrait</p>
+            <p className="mt-3 max-h-44 overflow-auto rounded-2xl bg-[#f7f8f6] p-4 text-sm leading-7 text-slate-600">
+              {text}
+            </p>
+          </div>
+        ) : null}
+
+        <div className="soft-card p-5">
+          <div className="flex items-start gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#f0f7f1] text-[#008f45]">
+              <Bot className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-lg font-extrabold text-[#1d252b]">Explication prudente</p>
+              <p className="mt-2 text-sm leading-7 text-slate-600">
+                {explanation || normalizedAnalysis.message || 'Aucune explication disponible pour cette analyse.'}
+              </p>
+            </div>
           </div>
         </div>
+
+        <p className="rounded-2xl border border-[#dfe8df] bg-[#f7f8f6] px-4 py-3 text-sm leading-6 text-slate-600">
+          GlutiSafe aide à lire une étiquette, mais ne remplace pas la vérification de l'emballage officiel ni les
+          informations du fabricant.
+        </p>
+
+        {(onSave || onNew || onHistory) && (
+          <div className="flex flex-col gap-3 sm:flex-row">
+            {onSave ? (
+              <button type="button" onClick={onSave} disabled={saved} className="primary-btn">
+                <Save className="h-4 w-4" aria-hidden="true" />
+                {saved ? 'Analyse sauvegardée' : 'Sauvegarder'}
+              </button>
+            ) : null}
+            {onNew ? (
+              <button type="button" onClick={onNew} className="secondary-btn">
+                <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                Nouvelle analyse
+              </button>
+            ) : null}
+            {onHistory ? (
+              <button type="button" onClick={onHistory} className="ghost-btn">
+                Voir l'historique
+              </button>
+            ) : null}
+          </div>
+        )}
       </div>
     </section>
   );
+}
+
+function legacyAnalysis(status, ingredients) {
+  const isSafe = status === 'safe' || status === 'NO_GLUTEN_DETECTED';
+  return {
+    status: isSafe ? 'NO_GLUTEN_DETECTED' : 'CONTAINS_GLUTEN',
+    label: isSafe ? 'Aucun gluten détecté' : 'Contient du gluten',
+    detectedWords: isSafe ? [] : ingredients,
+    possibleWords: [],
+    safeClaims: [],
+    confidence: 'medium',
+    message: '',
+  };
 }

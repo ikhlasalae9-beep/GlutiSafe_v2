@@ -1,8 +1,9 @@
-import { CheckCircle2, Image, ShieldAlert, Trash2 } from 'lucide-react';
+import { CheckCircle2, Image, ScanLine, ShieldAlert, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getStoredUser } from '../lib/auth.js';
 import { deleteAnalysis, getHistory, isSafeHistoryItem } from '../lib/history.js';
+import { getStatusStyle } from '../lib/status.js';
 
 export default function HistoryPage() {
   const navigate = useNavigate();
@@ -22,106 +23,126 @@ export default function HistoryPage() {
     setHistory(deleteAnalysis(id));
   };
 
-  const formatDate = (item) => {
-    if (item.date) return item.date;
+  return (
+    <div className="page-shell page-section">
+      <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="brand-kicker">Historique</p>
+          <h1 className="mt-2 brand-heading">Analyses sauvegardées</h1>
+          <p className="mt-3 brand-copy max-w-2xl">Consultez les résultats conservés localement pour ce profil.</p>
+        </div>
+        <button type="button" onClick={() => navigate('/analyse')} className="primary-btn">
+          <ScanLine className="h-4 w-4" aria-hidden="true" />
+          Nouvelle analyse
+        </button>
+      </div>
 
-    const fallbackDate = new Date(item.id || Date.now());
-    return fallbackDate.toLocaleDateString();
-  };
+      {history.length === 0 ? (
+        <section className="surface-card grid min-h-80 place-items-center p-8 text-center">
+          <div>
+            <Image className="mx-auto h-12 w-12 text-[#a8cfa5]" aria-hidden="true" />
+            <h2 className="mt-4 text-2xl font-extrabold text-[#1d252b]">Aucune analyse pour le moment</h2>
+            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
+              Sauvegardez un résultat après analyse pour le retrouver ici.
+            </p>
+          </div>
+        </section>
+      ) : (
+        <section className="grid gap-4">
+          {history.map((item) => {
+            const isSafe = isSafeHistoryItem(item);
+            const status = item.analysis?.status || item.status;
+            const style = getStatusStyle(status);
+            const StatusIcon = isSafe ? CheckCircle2 : ShieldAlert;
 
-  const formatIngredients = (item) => {
-    if (Array.isArray(item.ingredients)) {
-      return item.ingredients.join(', ');
-    }
+            return (
+              <article key={item.id} className="surface-card p-4 sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex min-w-0 flex-col gap-4 sm:flex-row">
+                    <HistoryThumbnail item={item} />
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`status-pill ${style.badge}`}>
+                          <StatusIcon className="h-4 w-4" aria-hidden="true" />
+                          {item.analysis?.label || style.label}
+                        </span>
+                        <span className="text-xs font-bold text-slate-500">{formatDate(item)}</span>
+                      </div>
+                      <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">{formatIngredients(item)}</p>
+                      <WordBadges item={item} />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(item.id)}
+                    className="secondary-btn border-red-200 text-red-700 hover:border-red-200 hover:bg-red-50 hover:text-red-700"
+                    aria-label="Supprimer cette analyse"
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden="true" />
+                    Supprimer
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </section>
+      )}
+    </div>
+  );
+}
 
-    if (typeof item.ingredients === 'string' && item.ingredients.trim()) {
-      return item.ingredients;
-    }
+function formatDate(item) {
+  const value = item.createdAt || item.date || item.id || Date.now();
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
+}
 
-    return item.fullText || item.textPreview || 'Aucun ingrédient enregistré';
-  };
+function formatIngredients(item) {
+  if (Array.isArray(item.ingredients)) return item.ingredients.join(', ');
+  if (typeof item.ingredients === 'string' && item.ingredients.trim()) return item.ingredients;
+  return item.fullText || item.textPreview || 'Aucun ingrédient enregistré';
+}
+
+function getWords(item) {
+  const detected = item.analysis?.detectedWords || [];
+  const possible = item.analysis?.possibleWords || [];
+  return [...detected, ...possible];
+}
+
+function WordBadges({ item }) {
+  const words = getWords(item);
+  if (words.length === 0) {
+    return <p className="mt-2 text-xs font-bold text-slate-500">Aucun mot surveillé</p>;
+  }
 
   return (
-    <div className="mx-auto w-full max-w-7xl">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-sm font-bold uppercase tracking-[0.14em] text-teal-700">History</p>
-            <h1 className="mt-2 text-4xl font-black tracking-tight">Previously analyzed products</h1>
-          </div>
-          <p className="max-w-xl leading-7 text-slate-600">
-            Review past product checks, gluten status, and quick nutrition summaries.
-          </p>
-        </div>
-
-        <section className="mt-8 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-200/60">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200 text-left">
-              <thead className="bg-slate-100">
-                <tr>
-                  {['Produit', 'Thumbnail', 'Status', 'Ingrédients', 'Actions'].map((heading) => (
-                    <th key={heading} scope="col" className="px-5 py-4 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
-                      {heading}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
-                {history.map((item) => {
-                  const isSafe = isSafeHistoryItem(item);
-                  const StatusIcon = isSafe ? CheckCircle2 : ShieldAlert;
-                  const productName = item.name || 'Produit Scanné';
-                  const dateLabel = formatDate(item);
-                  const ingredients = formatIngredients(item);
-
-                  return (
-                    <tr key={item.id} className="transition hover:bg-cyan-50/40">
-                      <td className="whitespace-nowrap px-5 py-4 align-middle">
-                        <p className="font-bold text-slate-900">{productName}</p>
-                        <p className="mt-1 text-sm text-slate-500">{dateLabel}</p>
-                      </td>
-                      <td className="px-5 py-4 align-middle">
-                        <div className="flex h-14 w-16 items-center justify-center rounded-lg border border-cyan-100 bg-gradient-to-br from-cyan-50 via-white to-teal-50">
-                          <Image className="h-6 w-6 text-teal-600" aria-hidden="true" />
-                        </div>
-                      </td>
-                      <td className="px-5 py-4 align-middle">
-                        <span
-                          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black ring-1 ${
-                            isSafe ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-red-50 text-red-700 ring-red-200'
-                          }`}
-                        >
-                          <StatusIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                          {isSafe ? 'Safe' : 'Danger'}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 align-middle">
-                        <p className="line-clamp-2 max-w-md text-sm leading-6 text-slate-600">{ingredients}</p>
-                      </td>
-                      <td className="px-5 py-4 align-middle">
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(item.id)}
-                          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-red-100 bg-white text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-4 focus:ring-red-100"
-                          aria-label={`Delete ${productName}`}
-                          title="Delete"
-                        >
-                          <Trash2 className="h-4 w-4" aria-hidden="true" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {history.length === 0 ? (
-            <div className="border-t border-slate-200 px-5 py-12 text-center">
-              <p className="text-lg font-black text-slate-950">No saved analyses</p>
-              <p className="mt-2 text-sm text-slate-500">Your saved scans will appear here for this signed-in email only.</p>
-            </div>
-          ) : null}
-        </section>
+    <div className="mt-3 flex flex-wrap gap-2">
+      {words.slice(0, 8).map((word) => (
+        <span key={word} className="rounded-full border border-[#dfe8df] bg-[#f7f8f6] px-3 py-1 text-xs font-bold text-slate-600">
+          {word}
+        </span>
+      ))}
     </div>
+  );
+}
+
+function HistoryThumbnail({ item }) {
+  const src = item.imageData || item.imagePreview || item.preview || item.imageUrl;
+
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt="Étiquette sauvegardée"
+        className="h-36 w-full shrink-0 rounded-[1.25rem] border border-[#dfe8df] bg-[#f7f8f6] object-cover sm:h-28 sm:w-32"
+        loading="lazy"
+      />
+    );
+  }
+
+  return (
+    <span className="flex h-36 w-full shrink-0 items-center justify-center rounded-[1.25rem] border border-[#dfe8df] bg-[#f7f8f6] text-[#008f45] sm:h-28 sm:w-32">
+      <Image className="h-8 w-8" aria-hidden="true" />
+    </span>
   );
 }

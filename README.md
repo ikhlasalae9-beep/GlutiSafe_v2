@@ -63,11 +63,17 @@ uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 Create `ocr-service/.env` from `ocr-service/.env.example`:
 
 ```env
-OCR_LANGS=fr,en,es,ch_sim
+OCR_LANGS=fr,en,es
 OCR_GPU=false
 OCR_MODEL_DIR=./models
 OCR_TEMP_DIR=./tmp
 OCR_CORS_ORIGINS=http://localhost:5173
+```
+
+For Chinese OCR, EasyOCR requires simplified Chinese to be paired only with English:
+
+```env
+OCR_LANGS=ch_sim,en
 ```
 
 ## API Endpoints
