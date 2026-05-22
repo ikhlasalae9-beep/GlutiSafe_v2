@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 390 760" fill="none">
+  <rect x="44" y="18" width="302" height="724" rx="48" fill="#20302A"/>
+  <rect x="58" y="34" width="274" height="692" rx="38" fill="#F8FBF8"/>
+  <rect x="156" y="45" width="78" height="8" rx="4" fill="#3C4944"/>
+  <circle cx="248" cy="49" r="4" fill="#3C4944"/>
+  <path d="M58 218c42-50 92-74 149-72 57 2 97 33 125 73V72a38 38 0 0 0-38-38H96a38 38 0 0 0-38 38v146Z" fill="#E5F8EC"/>
+  <text x="86" y="108" fill="#20302A" font-family="Inter,Arial,sans-serif" font-size="24" font-weight="700">GlutiSafe</text>
+  <text x="86" y="137" fill="#5B6A63" font-family="Inter,Arial,sans-serif" font-size="13">Scan ingredients with confidence</text>
+  <rect x="86" y="168" width="218" height="218" rx="26" fill="#FFFFFF" stroke="#DDE8E1"/>
+  <path d="M122 216h28M240 216h28M122 338h28M240 338h28M122 216v28M268 216v28M122 310v28M268 310v28" stroke="#41B86A" stroke-width="7" stroke-linecap="round"/>
+  <rect x="137" y="248" width="116" height="58" rx="12" fill="#F1F8F3"/>
+  <path d="M153 266h76M153 283h56" stroke="#20302A" stroke-width="4" stroke-linecap="round" opacity=".7"/>
+  <rect x="86" y="418" width="218" height="72" rx="18" fill="#20302A"/>
+  <circle cx="122" cy="454" r="17" fill="#E5F8EC"/>
+  <path d="m114 454 6 6 12-14" stroke="#41B86A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="152" y="447" fill="#FFFFFF" font-family="Inter,Arial,sans-serif" font-size="15" font-weight="700">Safe result</text>
+  <text x="152" y="469" fill="#BFEBD0" font-family="Inter,Arial,sans-serif" font-size="12">No gluten detected</text>
+  <rect x="86" y="520" width="96" height="82" rx="18" fill="#FFFFFF" stroke="#DDE8E1"/>
+  <rect x="206" y="520" width="98" height="82" rx="18" fill="#FFFFFF" stroke="#DDE8E1"/>
+  <path d="M110 552h48M110 570h34M230 552h48M230 570h28" stroke="#5B6A63" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="134" cy="630" r="18" fill="#E5F8EC"/>
+  <circle cx="195" cy="630" r="18" fill="#E5F8EC"/>
+  <circle cx="256" cy="630" r="18" fill="#E5F8EC"/>
+</svg>

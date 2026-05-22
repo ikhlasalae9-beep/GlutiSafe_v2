@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 640" fill="none">
+  <rect x="18" y="18" width="324" height="604" rx="34" fill="#F8FBF8" stroke="#DDE8E1" stroke-width="3"/>
+  <text x="44" y="72" fill="#20302A" font-family="Inter,Arial,sans-serif" font-size="23" font-weight="700">Scan label</text>
+  <text x="44" y="98" fill="#66756F" font-family="Inter,Arial,sans-serif" font-size="13">Align the ingredient list</text>
+  <rect x="44" y="126" width="272" height="286" rx="24" fill="#FFFFFF" stroke="#DDE8E1"/>
+  <path d="M84 174h42M234 174h42M84 364h42M234 364h42M84 174v42M276 174v42M84 322v42M276 322v42" stroke="#41B86A" stroke-width="7" stroke-linecap="round"/>
+  <rect x="104" y="222" width="152" height="96" rx="12" fill="#F1F8F3"/>
+  <path d="M122 247h116M122 272h92M122 297h104" stroke="#20302A" stroke-width="5" stroke-linecap="round" opacity=".65"/>
+  <path d="M64 270h232" stroke="#41B86A" stroke-width="3" stroke-linecap="round" opacity=".75"/>
+  <rect x="44" y="444" width="272" height="58" rx="16" fill="#E5F8EC"/>
+  <circle cx="76" cy="473" r="13" fill="#41B86A"/>
+  <path d="M112 465h136M112 484h88" stroke="#20302A" stroke-width="4" stroke-linecap="round" opacity=".7"/>
+  <rect x="84" y="536" width="192" height="48" rx="24" fill="#20302A"/>
+  <text x="136" y="566" fill="#FFFFFF" font-family="Inter,Arial,sans-serif" font-size="15" font-weight="700">Scanning</text>
+</svg>

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 640" fill="none">
+  <rect x="18" y="18" width="324" height="604" rx="34" fill="#F8FBF8" stroke="#DDE8E1" stroke-width="3"/>
+  <text x="44" y="74" fill="#20302A" font-family="Inter,Arial,sans-serif" font-size="23" font-weight="700">Result</text>
+  <rect x="44" y="112" width="272" height="230" rx="28" fill="#E5F8EC"/>
+  <circle cx="180" cy="197" r="48" fill="#FFFFFF"/>
+  <path d="m157 199 16 16 32-36" stroke="#41B86A" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="109" y="283" fill="#20302A" font-family="Inter,Arial,sans-serif" font-size="24" font-weight="800">Safe to eat</text>
+  <text x="103" y="308" fill="#5B6A63" font-family="Inter,Arial,sans-serif" font-size="13">No gluten ingredients detected</text>
+  <rect x="44" y="376" width="272" height="64" rx="17" fill="#FFFFFF" stroke="#DDE8E1"/>
+  <rect x="44" y="458" width="272" height="64" rx="17" fill="#FFFFFF" stroke="#DDE8E1"/>
+  <rect x="44" y="540" width="272" height="42" rx="21" fill="#20302A"/>
+  <path d="M74 406h156M74 488h132" stroke="#20302A" stroke-width="5" stroke-linecap="round" opacity=".68"/>
+  <circle cx="272" cy="408" r="13" fill="#41B86A"/><circle cx="272" cy="490" r="13" fill="#41B86A"/>
+</svg>

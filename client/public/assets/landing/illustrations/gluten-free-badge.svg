@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 420" fill="none">
+  <circle cx="210" cy="210" r="142" fill="#E5F8EC"/>
+  <circle cx="210" cy="210" r="112" fill="#FFFFFF" stroke="#41B86A" stroke-width="7"/>
+  <path d="M210 132v132M210 168c-26-5-40-21-42-48 27 3 41 18 42 48ZM210 207c-26-5-40-21-42-48 27 3 41 18 42 48ZM210 246c-26-5-40-21-42-48 27 3 41 18 42 48ZM210 168c26-5 40-21 42-48-27 3-41 18-42 48ZM210 207c26-5 40-21 42-48-27 3-41 18-42 48ZM210 246c26-5 40-21 42-48-27 3-41 18-42 48Z" stroke="#41B86A" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M134 286 286 134" stroke="#20302A" stroke-width="11" stroke-linecap="round"/>
+  <text x="210" y="323" text-anchor="middle" fill="#20302A" font-family="Inter,Arial,sans-serif" font-size="30" font-weight="800">GLUTEN SAFE</text>
+</svg>
