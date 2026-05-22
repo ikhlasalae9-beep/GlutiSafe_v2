@@ -1,5 +1,5 @@
 import { ArrowRight, ChevronDown, ScanLine } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 const asset = (path) => `/assets/landing/${path}`;
@@ -139,6 +139,21 @@ const faqs = [
 ];
 
 export default function HomePage() {
+  useEffect(() => {
+    const scrollToHash = () => {
+      const id = window.location.hash.slice(1);
+      if (!id) return;
+
+      window.requestAnimationFrame(() => {
+        document.getElementById(id)?.scrollIntoView({ block: 'start' });
+      });
+    };
+
+    scrollToHash();
+    window.addEventListener('hashchange', scrollToHash);
+    return () => window.removeEventListener('hashchange', scrollToHash);
+  }, []);
+
   return (
     <div className="landing-page">
       <HeroSection />
@@ -285,7 +300,7 @@ function FeaturesSection() {
 
 function PreviewSection() {
   return (
-    <section className="landing-section preview-section page-shell" aria-labelledby="preview-title">
+    <section id="app-preview" className="landing-section preview-section page-shell" aria-labelledby="preview-title">
       <div className="section-heading section-heading--left">
         <p className="landing-kicker">Aperçu app</p>
         <h2 id="preview-title">Du scan au résultat, en quelques secondes.</h2>
@@ -351,7 +366,7 @@ function FaqSection() {
 
 function FinalCtaSection() {
   return (
-    <section className="landing-section page-shell">
+    <section id="scanner" className="landing-section page-shell">
       <div className="final-cta">
         <img className="final-cta__blob" src={asset('backgrounds/soft-green-blobs.svg')} alt="" aria-hidden="true" />
         <div className="final-cta__copy">

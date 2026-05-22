@@ -115,7 +115,7 @@ function LandingHeader({ menuOpen, setMenuOpen }) {
     ['Comment ça marche', '#comment-ca-marche'],
     ['Fonctionnalités', '#fonctionnalites'],
     ['Questions', '#questions'],
-    ['Scanner', '/analyse'],
+    ['Scanner', '#scanner'],
   ];
 
   const closeMenu = () => setMenuOpen(false);

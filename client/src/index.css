@@ -23,6 +23,11 @@
 
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: 7.5rem;
+}
+
+html:has(.landing-page) {
+  scroll-snap-type: y proximity;
 }
 
 body {
@@ -284,10 +289,12 @@ a {
   align-items: center;
   display: grid;
   gap: 2.5rem;
-  min-height: calc(100vh - 6rem);
+  min-height: calc(100svh - 7.5rem);
   padding-bottom: 4rem;
   padding-top: 3.5rem;
   position: relative;
+  scroll-margin-top: 7.5rem;
+  scroll-snap-align: start;
 }
 
 .landing-hero > * {
@@ -509,6 +516,17 @@ a {
   padding-bottom: 5rem;
   padding-top: 5rem;
   position: relative;
+  scroll-margin-top: 7.5rem;
+  scroll-snap-align: start;
+}
+
+.preview-section,
+#scanner {
+  min-height: calc(100svh - 7.5rem);
+}
+
+.faq-section {
+  scroll-snap-align: none;
 }
 
 .landing-section--tint {
@@ -1085,6 +1103,14 @@ a {
 }
 
 @media (max-width: 639px) {
+  html {
+    scroll-padding-top: 6rem;
+  }
+
+  html:has(.landing-page) {
+    scroll-snap-type: none;
+  }
+
   .landing-header {
     padding-left: 0.7rem;
     padding-right: 0.7rem;
@@ -1118,6 +1144,7 @@ a {
     min-height: auto;
     padding-bottom: 2rem;
     padding-top: 2.2rem;
+    scroll-margin-top: 6rem;
   }
 
   .landing-hero__copy,
@@ -1210,6 +1237,13 @@ a {
   .landing-section {
     padding-bottom: 3.5rem;
     padding-top: 3.5rem;
+    scroll-margin-top: 6rem;
+    scroll-snap-align: none;
+  }
+
+  .preview-section,
+  #scanner {
+    min-height: auto;
   }
 
   .step-card {
