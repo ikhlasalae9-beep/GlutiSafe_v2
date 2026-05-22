@@ -1,6 +1,6 @@
 import { History, Home, LogOut, Menu, ScanLine, UserRound, X } from 'lucide-react';
 import { useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { clearStoredUser, getStoredUser } from '../lib/auth.js';
 
 const navItems = [
@@ -12,8 +12,10 @@ const navItems = [
 
 export default function SidebarLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const user = getStoredUser();
   const [menuOpen, setMenuOpen] = useState(false);
+  const isLanding = location.pathname === '/';
 
   const handleSignOut = () => {
     clearStoredUser();
@@ -22,6 +24,9 @@ export default function SidebarLayout() {
 
   return (
     <div className="app-shell">
+      {isLanding ? (
+        <LandingHeader menuOpen={menuOpen} setMenuOpen={setMenuOpen} />
+      ) : (
       <header className="fixed left-0 right-0 top-0 z-50 px-3 pt-3 sm:px-5 sm:pt-5">
         <div className="mx-auto max-w-6xl rounded-[1.75rem] border border-white/70 bg-white/78 px-3 py-3 shadow-[0_20px_60px_rgba(29,37,43,0.12)] backdrop-blur-2xl">
           <div className="flex items-center justify-between gap-3">
@@ -95,11 +100,81 @@ export default function SidebarLayout() {
           ) : null}
         </div>
       </header>
+      )}
 
-      <main className="min-h-screen pt-28 sm:pt-32">
+      <main className={isLanding ? 'min-h-screen pt-20 sm:pt-24' : 'min-h-screen pt-28 sm:pt-32'}>
         <Outlet />
       </main>
     </div>
+  );
+}
+
+function LandingHeader({ menuOpen, setMenuOpen }) {
+  const navLinks = [
+    ['Accueil', '#accueil'],
+    ['Comment ça marche', '#comment-ca-marche'],
+    ['Fonctionnalités', '#fonctionnalites'],
+    ['Questions', '#questions'],
+    ['Scanner', '/analyse'],
+  ];
+
+  const closeMenu = () => setMenuOpen(false);
+
+  return (
+    <header className="landing-header">
+      <div className="landing-header__inner">
+        <a href="#accueil" className="landing-header__brand" onClick={closeMenu} aria-label="Accueil GlutiSafe">
+          <img src="/assets/landing/logo.png" alt="Logo GlutiSafe" />
+        </a>
+
+        <nav className="landing-header__nav" aria-label="Navigation landing page">
+          {navLinks.map(([label, href]) =>
+            href.startsWith('#') ? (
+              <a key={href} href={href}>
+                {label}
+              </a>
+            ) : (
+              <Link key={href} to={href}>
+                {label}
+              </Link>
+            ),
+          )}
+        </nav>
+
+        <div className="landing-header__actions">
+          <Link to="/analyse" className="landing-header__cta">
+            Commencer
+          </Link>
+          <button
+            type="button"
+            className="landing-header__menu"
+            onClick={() => setMenuOpen((open) => !open)}
+            aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+            aria-expanded={menuOpen}
+          >
+            {menuOpen ? <X className="h-5 w-5" aria-hidden="true" /> : <Menu className="h-5 w-5" aria-hidden="true" />}
+          </button>
+        </div>
+      </div>
+
+      {menuOpen ? (
+        <div className="landing-header__mobile">
+          <nav aria-label="Navigation mobile landing page">
+            {navLinks.map(([label, href]) =>
+              href.startsWith('#') ? (
+                <a key={href} href={href} onClick={closeMenu}>
+                  {label}
+                </a>
+              ) : (
+                <Link key={href} to={href} onClick={closeMenu}>
+                  {label}
+                </Link>
+              ),
+            )}
+          </nav>
+        </div>
+      ) : null}
+    </header>
   );
 }
 
