@@ -34,7 +34,7 @@ export default function ProfilePage() {
               </div>
               <div className="min-w-0">
                 <p className="brand-kicker">Profil</p>
-                <h1 className="mt-1 truncate text-3xl font-extrabold tracking-tight text-[#1d252b]">{user.name || 'Invité'}</h1>
+                <h1 className="mt-1 truncate text-3xl font-extrabold tracking-tight text-[#1d252b]">{user.name}</h1>
                 <p className="mt-2 flex items-center gap-2 text-sm text-slate-500">
                   <Mail className="h-4 w-4" aria-hidden="true" />
                   {user.email}
@@ -52,8 +52,8 @@ export default function ProfilePage() {
         <section className="space-y-6">
           <Panel icon={UserRound} title="Informations personnelles">
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Nom complet" value={user.name || 'Invite'} />
-              <Field label="Email" value={user.email || 'guest@example.com'} />
+              <Field label="Nom complet" value={user.name} />
+              <Field label="Email" value={user.email} />
             </div>
           </Panel>
 
@@ -80,7 +80,7 @@ export default function ProfilePage() {
                 variant="secondary"
                 onClick={() => {
                   clearStoredUser();
-                  navigate('/login', { replace: true });
+                  navigate('/', { replace: true });
                 }}
               >
                 Déconnexion

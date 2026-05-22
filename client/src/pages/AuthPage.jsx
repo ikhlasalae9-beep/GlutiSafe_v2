@@ -1,30 +1,50 @@
 import { HeartPulse, Leaf, Lock, Mail, ShieldCheck, UserRound } from 'lucide-react';
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import Button from '../components/Button.jsx';
-import { getStoredUser, setStoredUser } from '../lib/auth.js';
+import { loginUser, registerUser } from '../lib/auth.js';
 
 export default function AuthPage({ mode = 'register' }) {
   const isRegister = mode === 'register';
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (event) => {
+  const requestedRedirect = searchParams.get('redirect') || location.state?.from?.pathname || '/analyse';
+  const redirectTo = requestedRedirect.startsWith('/') && !requestedRedirect.startsWith('//') ? requestedRedirect : '/analyse';
+
+  const handleSubmit = async (event) => {
     event.preventDefault();
+    setError('');
+    setSuccess('');
 
-    const storedUser = getStoredUser() || {};
-    const normalizedEmail = email.trim().toLowerCase();
-    const isSameStoredUser = storedUser.email === normalizedEmail;
+    if (isRegister && password !== confirmPassword) {
+      setError('Les mots de passe ne correspondent pas.');
+      return;
+    }
 
-    const nextUser = {
-      name: isRegister ? name.trim() : isSameStoredUser ? storedUser.name : normalizedEmail.split('@')[0] || 'Invité',
-      email: normalizedEmail,
-    };
-
-    setStoredUser(nextUser);
-    navigate('/profile');
+    setLoading(true);
+    try {
+      if (isRegister) {
+        await registerUser({ name, email, password });
+        setSuccess('Compte créé avec succès. Redirection vers le scanner...');
+      } else {
+        await loginUser({ email, password });
+        setSuccess('Connexion réussie. Redirection vers le scanner...');
+      }
+      window.setTimeout(() => navigate(redirectTo, { replace: true }), 350);
+    } catch (submitError) {
+      setError(submitError.message || 'Impossible de finaliser cette action.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -40,7 +60,7 @@ export default function AuthPage({ mode = 'register' }) {
               Une plateforme claire pour vérifier vos étiquettes.
             </h1>
             <p className="mt-5 max-w-xl text-lg leading-8 text-white/78">
-              Créez un profil local pour conserver vos analyses sur cet appareil et retrouver vos résultats plus vite.
+              Connectez-vous pour accéder au scanner, conserver vos analyses et retrouver vos résultats plus vite.
             </p>
             <div className="mt-10 grid max-w-xl grid-cols-2 gap-4">
               <Feature icon={Leaf} label="Ingrédients plus lisibles" />
@@ -54,7 +74,7 @@ export default function AuthPage({ mode = 'register' }) {
             <img src="/logo.png" alt="Logo GlutiSafe" className="h-12 w-12 rounded-2xl bg-white object-contain shadow-sm ring-1 ring-[#dfe8df]" />
             <div>
               <p className="text-2xl font-extrabold tracking-tight text-[#1d252b]">GlutiSafe</p>
-              <p className="text-sm text-slate-500">{isRegister ? 'Créer votre profil' : 'Bon retour'}</p>
+              <p className="text-sm text-slate-500">{isRegister ? 'Créer votre compte' : 'Bon retour'}</p>
             </div>
           </div>
 
@@ -73,16 +93,30 @@ export default function AuthPage({ mode = 'register' }) {
               <span className="text-sm font-bold text-slate-700">Mot de passe</span>
               <Field icon={Lock} placeholder="Votre mot de passe" required type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
             </label>
-            <p className="rounded-2xl border border-[#dfe8df] bg-[#f7f8f6] px-4 py-3 text-xs leading-5 text-slate-500">
-              Profil local de démonstration. Les données sont conservées dans ce navigateur.
-            </p>
-            <Button className="w-full" type="submit">{isRegister ? 'Créer le profil' : 'Se connecter'}</Button>
+            {isRegister ? (
+              <label className="block">
+                <span className="text-sm font-bold text-slate-700">Confirmer le mot de passe</span>
+                <Field
+                  icon={Lock}
+                  placeholder="Confirmez votre mot de passe"
+                  required
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                />
+              </label>
+            ) : null}
+            {error ? <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">{error}</p> : null}
+            {success ? <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">{success}</p> : null}
+            <Button className="w-full" type="submit" disabled={loading}>
+              {loading ? 'Veuillez patienter...' : isRegister ? 'Créer mon compte' : 'Se connecter'}
+            </Button>
           </form>
 
           <p className="mt-6 text-center text-sm text-slate-500">
-            {isRegister ? 'Déjà un profil ?' : 'Besoin de créer un profil ?'}{' '}
-            <Link className="font-bold text-[#008f45] hover:text-[#004b3a]" to={isRegister ? '/login' : '/register'}>
-              {isRegister ? 'Se connecter' : 'Créer un profil'}
+            {isRegister ? 'Déjà un compte ?' : 'Besoin de créer un compte ?'}{' '}
+            <Link className="font-bold text-[#008f45] hover:text-[#004b3a]" to={`${isRegister ? '/login' : '/register'}?redirect=${encodeURIComponent(redirectTo)}`}>
+              {isRegister ? 'Se connecter' : 'Créer un compte'}
             </Link>
           </p>
         </section>

@@ -19,7 +19,7 @@ export default function SidebarLayout() {
 
   const handleSignOut = () => {
     clearStoredUser();
-    navigate('/login', { replace: true });
+    navigate('/', { replace: true });
   };
 
   return (
@@ -55,8 +55,8 @@ export default function SidebarLayout() {
                   <UserRound className="h-4 w-4" aria-hidden="true" />
                 </span>
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-[#1d252b]">{user?.name || 'Invité'}</p>
-                  <p className="truncate text-xs text-slate-500">{user?.email || 'Non connecté'}</p>
+                  <p className="truncate text-sm font-bold text-[#1d252b]">{user?.name}</p>
+                  <p className="truncate text-xs text-slate-500">{user?.email}</p>
                 </div>
               </div>
               <button
@@ -89,8 +89,8 @@ export default function SidebarLayout() {
               </nav>
               <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl bg-[#f7f8f6]/80 p-3">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-[#1d252b]">{user?.name || 'Invité'}</p>
-                  <p className="truncate text-xs text-slate-500">{user?.email || 'Non connecté'}</p>
+                  <p className="truncate text-sm font-bold text-[#1d252b]">{user?.name}</p>
+                  <p className="truncate text-xs text-slate-500">{user?.email}</p>
                 </div>
                 <button type="button" onClick={handleSignOut} className="secondary-btn px-3" aria-label="Déconnexion">
                   <LogOut className="h-4 w-4" aria-hidden="true" />
@@ -171,6 +171,9 @@ function LandingHeader({ menuOpen, setMenuOpen }) {
                 </Link>
               ),
             )}
+            <Link to="/analyse" className="landing-header__mobile-cta" onClick={closeMenu}>
+              Commencer
+            </Link>
           </nav>
         </div>
       ) : null}

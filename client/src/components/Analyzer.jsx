@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { fullAnalysis } from '../lib/api.js';
 import { saveAnalysis, textPreview } from '../lib/history.js';
 import { extractTextWithEasyOCR } from '../lib/ocrApi.js';
+import { logCompletedScan } from '../lib/scanStats.js';
 import CameraCapture from './CameraCapture.jsx';
 import ExtractedTextEditor from './ExtractedTextEditor.jsx';
 import ImageUploader from './ImageUploader.jsx';
@@ -117,6 +118,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
 
     try {
       const result = await fullAnalysis(text);
+      logCompletedScan(result.analysis);
       onResult({ ...result, text, inputType: method, imageData });
     } catch (error) {
       setAnalysisError(error.message || "Impossible d'analyser les ingrédients pour le moment.");
