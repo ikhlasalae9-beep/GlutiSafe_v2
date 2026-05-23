@@ -21,8 +21,23 @@ const [{ default: cors }, { default: express }, { default: analyzeRouter }, { de
 
 const app = express();
 const port = process.env.PORT || 5000;
+const allowedOrigins = [
+  process.env.CLIENT_URL || 'http://localhost:5173',
+  process.env.PRODUCTION_CLIENT_URL || 'https://your-vercel-domain.vercel.app',
+].filter(Boolean);
 
-app.use(cors());
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`CORS origin not allowed: ${origin}`));
+    },
+  }),
+);
 app.use(express.json({ limit: '1mb' }));
 
 app.get('/api/health', (_req, res) => {
