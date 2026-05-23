@@ -5,7 +5,8 @@ GlutiSafe is a React, Node, and Python app for extracting visible ingredient tex
 ## Architecture
 
 - `client/`: React + Vite frontend on `http://localhost:5173`
-- `server/`: Node/Express analysis backend on `http://localhost:5000`
+- `server/`: Node/Express analysis backend on `http://localhost:5000` for local development
+- `client/api/`: Vercel serverless API functions for production deployment
 - `ocr-service/`: Python FastAPI EasyOCR service on `http://localhost:8000`
 
 Image flow:
@@ -13,9 +14,9 @@ Image flow:
 1. React sends an uploaded image or camera photo to `POST http://localhost:8000/ocr/extract`.
 2. The OCR service extracts text with EasyOCR.
 3. React displays the editable extracted text.
-4. React sends final text to `POST http://localhost:5000/api/full-analysis`.
-5. Node runs the local gluten rule engine.
-6. Node uses backend-only AI services for explanations and chatbot responses, or returns clean fallback/error responses when AI is unavailable.
+4. React sends final text to `POST /api/full-analysis` in production, or `POST http://localhost:5000/api/full-analysis` locally.
+5. The backend API runs the local gluten rule engine.
+6. The backend API uses backend-only AI services for explanations and chatbot responses, or returns clean fallback/error responses when AI is unavailable.
 
 The verdict always comes from the rule engine. AI is never used for OCR, and AI provider keys are never exposed to the frontend.
 
@@ -46,6 +47,8 @@ Create `server/.env` from `server/.env.example`:
 
 ```env
 PORT=5000
+CLIENT_URL=http://localhost:5173
+PRODUCTION_CLIENT_URL=https://your-vercel-domain.vercel.app
 GITHUB_MODELS_TOKEN=your_token_here
 GITHUB_TOKEN=your_token_here
 GITHUB_MODELS_BASE_URL=https://models.github.ai/inference
@@ -53,6 +56,29 @@ GITHUB_MODELS_MODEL=openai/gpt-4o
 ```
 
 Manual input and rule-based analysis work even if AI services are unavailable. The chatbot uses GitHub Models GPT-4o through the backend endpoint `POST /api/chatbot/message`.
+
+## Vercel Deployment
+
+Deploy the `client/` directory on Vercel. The production API functions live in `client/api/`, so the frontend can call same-origin paths such as `/api/chatbot/message` when `VITE_API_URL` is empty.
+
+In Vercel Project Settings, add these environment variables without the `VITE_` prefix:
+
+```env
+GITHUB_MODELS_TOKEN=your_github_models_token_here
+GITHUB_TOKEN=your_github_models_token_here
+GITHUB_MODELS_BASE_URL=https://models.github.ai/inference
+GITHUB_MODELS_MODEL=openai/gpt-4o
+```
+
+Do not add GitHub tokens as `VITE_*` variables, because `VITE_*` values are exposed to the browser bundle.
+
+For local frontend development with the Express backend, keep:
+
+```env
+VITE_API_URL=http://localhost:5000
+```
+
+For Vercel production, leave `VITE_API_URL` empty or unset so requests use the same deployed domain. The EasyOCR service is still a separate Python service; Vercel serverless functions provide the text analysis and chatbot endpoints without changing OCR logic.
 
 ## OCR Service Setup
 
@@ -80,11 +106,11 @@ OCR_LANGS=ch_sim,en
 
 ## API Endpoints
 
-- `GET http://localhost:5000/api/health`
-- `POST http://localhost:5000/api/analyze`
-- `POST http://localhost:5000/api/explain`
-- `POST http://localhost:5000/api/full-analysis`
-- `POST http://localhost:5000/api/chatbot/message`
+- `GET /api/health`
+- `POST /api/analyze`
+- `POST /api/explain`
+- `POST /api/full-analysis`
+- `POST /api/chatbot/message`
 - `GET http://localhost:8000/health`
 - `GET http://localhost:8000/ocr/status`
 - `POST http://localhost:8000/ocr/extract`
