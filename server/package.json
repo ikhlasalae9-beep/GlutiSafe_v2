@@ -4,12 +4,12 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "build": "node --check index.js && node --check routes/chatbot.js && node --check lib/aiService.js && node --check lib/explain.js",
     "dev": "node index.js",
     "start": "node index.js",
     "test:rules": "node test-glutenRules.js"
   },
   "dependencies": {
-    "@google/genai": "^1.0.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",

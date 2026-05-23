@@ -15,9 +15,9 @@ Image flow:
 3. React displays the editable extracted text.
 4. React sends final text to `POST http://localhost:5000/api/full-analysis`.
 5. Node runs the local gluten rule engine.
-6. Node uses Gemini only for a short explanation of the already-decided result, or returns a local fallback if Gemini is unavailable.
+6. Node uses backend-only AI services for explanations and chatbot responses, or returns clean fallback/error responses when AI is unavailable.
 
-The verdict always comes from the rule engine. Gemini is never used for OCR, and the Gemini API key is never exposed to the frontend.
+The verdict always comes from the rule engine. AI is never used for OCR, and AI provider keys are never exposed to the frontend.
 
 ## Frontend Setup
 
@@ -46,11 +46,13 @@ Create `server/.env` from `server/.env.example`:
 
 ```env
 PORT=5000
-GEMINI_API_KEY=
-GEMINI_MODEL=gemini-2.5-flash
+GITHUB_MODELS_TOKEN=your_token_here
+GITHUB_TOKEN=your_token_here
+GITHUB_MODELS_BASE_URL=https://models.github.ai/inference
+GITHUB_MODELS_MODEL=openai/gpt-4o
 ```
 
-Manual input and rule-based analysis work even if Gemini is unavailable.
+Manual input and rule-based analysis work even if AI services are unavailable. The chatbot uses GitHub Models GPT-4o through the backend endpoint `POST /api/chatbot/message`.
 
 ## OCR Service Setup
 
@@ -82,6 +84,7 @@ OCR_LANGS=ch_sim,en
 - `POST http://localhost:5000/api/analyze`
 - `POST http://localhost:5000/api/explain`
 - `POST http://localhost:5000/api/full-analysis`
+- `POST http://localhost:5000/api/chatbot/message`
 - `GET http://localhost:8000/health`
 - `GET http://localhost:8000/ocr/status`
 - `POST http://localhost:8000/ocr/extract`

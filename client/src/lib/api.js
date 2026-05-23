@@ -25,3 +25,7 @@ export function explainAnalysis(payload) {
 export function fullAnalysis(text) {
   return request('/api/full-analysis', { text });
 }
+
+export function sendChatbotMessage({ message, context }) {
+  return request('/api/chatbot/message', { message, context: context || {} });
+}

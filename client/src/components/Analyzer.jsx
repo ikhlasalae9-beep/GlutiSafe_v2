@@ -11,6 +11,8 @@ import InputMethodTabs from './InputMethodTabs.jsx';
 import OcrProgress from './OcrProgress.jsx';
 import ResultCard from './ResultCard.jsx';
 
+const CHATBOT_CONTEXT_KEY = 'glutisafe_last_scan_context';
+
 export default function Analyzer({ latestResult, onResult, onNavigate }) {
   const [method, setMethod] = useState('upload');
   const [file, setFile] = useState(null);
@@ -119,6 +121,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
     try {
       const result = await fullAnalysis(text);
       logCompletedScan(result.analysis);
+      saveChatbotScanContext(result, text);
       onResult({ ...result, text, inputType: method, imageData });
     } catch (error) {
       setAnalysisError(error.message || "Impossible d'analyser les ingrédients pour le moment.");
@@ -244,6 +247,23 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
       <CameraCapture open={cameraOpen} onClose={() => setCameraOpen(false)} onCapture={handleCameraCapture} />
     </section>
   );
+}
+
+function saveChatbotScanContext(result, text) {
+  try {
+    sessionStorage.setItem(
+      CHATBOT_CONTEXT_KEY,
+      JSON.stringify({
+        lastScanResult: result.analysis,
+        ingredients: text,
+        verdict: result.analysis?.status || result.analysis?.label,
+        detectedRiskyIngredients: result.analysis?.detectedWords || [],
+        warnings: result.analysis?.possibleWords || [],
+      }),
+    );
+  } catch {
+    // Chat context is optional; scanning must not depend on storage availability.
+  }
 }
 
 function MiniMetric({ icon: Icon, label, value }) {

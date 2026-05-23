@@ -1,4 +1,7 @@
-import { explainWithGemini } from './gemini.js';
+import { createChatCompletion } from './aiService.js';
+
+const EXPLANATION_SYSTEM_PROMPT =
+  'You are the GlutiSafe assistant. Explain the already-decided gluten scan result in simple French. Keep it short and practical. Do not change the verdict.';
 
 const fallbackExplanations = {
   CONTAINS_GLUTEN:
@@ -21,11 +24,23 @@ export async function generateExplanation({ analysis, text = '' }) {
   }
 
   try {
-    if (!process.env.GEMINI_API_KEY) {
-      return fallbackExplanation(analysis.status);
-    }
+    const prompt = [
+      `Verdict fixe: ${analysis.label} (${analysis.status})`,
+      `Mots directs détectés: ${(analysis.detectedWords || []).join(', ') || 'aucun'}`,
+      `Mots possibles détectés: ${(analysis.possibleWords || []).join(', ') || 'aucun'}`,
+      `Texte analysé: ${String(text || '').slice(0, 900)}`,
+    ].join('\n');
 
-    return (await explainWithGemini({ analysis, text })) || fallbackExplanation(analysis.status);
+    return (
+      (await createChatCompletion({
+        messages: [
+          { role: 'system', content: EXPLANATION_SYSTEM_PROMPT },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.2,
+        maxTokens: 180,
+      })) || fallbackExplanation(analysis.status)
+    );
   } catch {
     return fallbackExplanation(analysis.status);
   }
