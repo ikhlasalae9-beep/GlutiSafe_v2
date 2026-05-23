@@ -1,21 +1,19 @@
-const OCR_API_URL = import.meta.env.VITE_OCR_API_URL || 'http://localhost:8000';
+import { API_URL } from '../config/api.js';
 
 export async function extractTextWithEasyOCR(file) {
   if (!file) {
     throw new Error('Aucune image sélectionnée.');
   }
 
-  const formData = new FormData();
-  formData.append('image', file);
-
   let response;
   try {
-    response = await fetch(`${OCR_API_URL}/ocr/extract`, {
+    response = await fetch(`${API_URL}/api/analyze`, {
       method: 'POST',
-      body: formData,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ base64Image: await fileToDataUrl(file) }),
     });
   } catch {
-    throw new Error('Le service OCR EasyOCR est indisponible. Vous pouvez saisir les ingrédients manuellement.');
+    throw new Error('Le service OCR est indisponible. Vous pouvez saisir les ingrédients manuellement.');
   }
 
   let payload;
@@ -26,11 +24,22 @@ export async function extractTextWithEasyOCR(file) {
   }
 
   if (!response.ok || !payload.success) {
-    throw new Error(payload.error || "Impossible d'extraire le texte avec EasyOCR. Vous pouvez saisir les ingrédients manuellement.");
+    throw new Error(
+      payload.message || payload.error || "Impossible d'extraire le texte. Vous pouvez saisir les ingrédients manuellement.",
+    );
   }
 
   return {
     ...payload,
     text: String(payload.text || '').replace(/\s+/g, ' ').trim(),
   };
+}
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error("Impossible de préparer l'image pour l'OCR."));
+    reader.readAsDataURL(file);
+  });
 }
