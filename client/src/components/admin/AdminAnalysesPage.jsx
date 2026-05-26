@@ -13,7 +13,7 @@ export default function AdminAnalysesPage({ analyses }) {
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
     return analyses.filter((analysis) => {
-      const haystack = `${analysis.userName} ${analysis.userEmail} ${analysis.ocrText}`.toLowerCase();
+      const haystack = `${analysis.userName} ${analysis.userEmail} ${analysis.productName} ${analysis.ocrText}`.toLowerCase();
       const date = analysis.createdAt ? analysis.createdAt.slice(0, 10) : '';
       return (
         (!query || haystack.includes(query)) &&
@@ -51,7 +51,8 @@ export default function AdminAnalysesPage({ analyses }) {
                   <span className="text-sm font-bold text-[#1d252b]">{analysis.label}</span>
                   <span className="text-xs font-semibold text-slate-500">{analysis.inputType}</span>
                 </div>
-                <p className="mt-2 text-sm font-semibold text-slate-600">{analysis.userName} {analysis.userEmail ? `(${analysis.userEmail})` : ''}</p>
+                <p className="mt-2 text-base font-black text-[#1d252b]">{analysis.productName || 'Produit sans nom'}</p>
+                <p className="mt-1 text-sm font-semibold text-slate-600">{analysis.userName} {analysis.userEmail ? `(${analysis.userEmail})` : ''}</p>
                 <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-500">{analysis.ocrText || 'Aucun texte OCR enregistré.'}</p>
                 <WordList words={analysis.detectedWords} />
               </div>

@@ -85,6 +85,16 @@ The schema creates:
 
 Row Level Security is enabled on all tables. Users can only read their own rows; admins can read platform data; protected pack actions use serverless routes with `SUPABASE_SERVICE_ROLE_KEY`.
 
+For product names and private image previews in history, run `supabase/admin_extra_schema.sql`. It adds optional analysis columns and creates the private `analysis-images` bucket policies.
+
+```sql
+alter table public.analyses
+add column if not exists product_name text,
+add column if not exists image_path text;
+```
+
+Create a private Supabase Storage bucket named `analysis-images`. The app uploads product photos there and stores only the storage path in `public.analyses.image_path`.
+
 In Supabase Dashboard -> Authentication -> URL Configuration:
 
 - Site URL: `https://gluti-safe-v2.vercel.app`

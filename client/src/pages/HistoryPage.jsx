@@ -3,11 +3,13 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getStoredUser } from '../lib/auth.js';
 import { deleteAnalysis, getHistory, isSafeHistoryItem } from '../lib/history.js';
+import { getSignedAnalysisImageUrl } from '../lib/storage.js';
 import { getStatusStyle } from '../lib/status.js';
 
 export default function HistoryPage() {
   const navigate = useNavigate();
   const [history, setHistory] = useState([]);
+  const [imageUrls, setImageUrls] = useState({});
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -21,7 +23,9 @@ export default function HistoryPage() {
       }
 
       const rows = await getHistory();
-      if (active) setHistory(rows);
+      if (!active) return;
+      setHistory(rows);
+      setImageUrls(await resolveSignedUrls(rows));
     }
 
     loadHistory().catch((loadError) => {
@@ -33,9 +37,14 @@ export default function HistoryPage() {
     };
   }, [navigate]);
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (item) => {
+    const confirmed = window.confirm('Supprimer cette analyse ? Cette action est irréversible.');
+    if (!confirmed) return;
+
     try {
-      setHistory(await deleteAnalysis(id));
+      const nextHistory = await deleteAnalysis(item.id, item.imagePath);
+      setHistory(nextHistory);
+      setImageUrls(await resolveSignedUrls(nextHistory));
     } catch (deleteError) {
       setError(deleteError.message || "Impossible de supprimer l'analyse.");
     }
@@ -47,7 +56,7 @@ export default function HistoryPage() {
         <div>
           <p className="brand-kicker">Historique</p>
           <h1 className="mt-2 brand-heading">Analyses sauvegardées</h1>
-          <p className="mt-3 brand-copy max-w-2xl">Consultez les résultats sauvegardés pour ce profil.</p>
+          <p className="mt-3 brand-copy max-w-2xl">Consultez les produits analysés et les résultats sauvegardés pour ce profil.</p>
         </div>
         <button type="button" onClick={() => navigate('/analyse')} className="primary-btn">
           <ScanLine className="h-4 w-4" aria-hidden="true" />
@@ -69,45 +78,50 @@ export default function HistoryPage() {
         </section>
       ) : (
         <section className="grid gap-4">
-          {history.map((item) => {
-            const isSafe = isSafeHistoryItem(item);
-            const status = item.analysis?.status || item.status;
-            const style = getStatusStyle(status);
-            const StatusIcon = isSafe ? CheckCircle2 : ShieldAlert;
-
-            return (
-              <article key={item.id} className="surface-card p-4 sm:p-5">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="flex min-w-0 flex-col gap-4 sm:flex-row">
-                    <HistoryThumbnail item={item} />
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className={`status-pill ${style.badge}`}>
-                          <StatusIcon className="h-4 w-4" aria-hidden="true" />
-                          {item.analysis?.label || style.label}
-                        </span>
-                        <span className="text-xs font-bold text-slate-500">{formatDate(item)}</span>
-                      </div>
-                      <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">{formatIngredients(item)}</p>
-                      <WordBadges item={item} />
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(item.id)}
-                    className="secondary-btn border-red-200 text-red-700 hover:border-red-200 hover:bg-red-50 hover:text-red-700"
-                    aria-label="Supprimer cette analyse"
-                  >
-                    <Trash2 className="h-4 w-4" aria-hidden="true" />
-                    Supprimer
-                  </button>
-                </div>
-              </article>
-            );
-          })}
+          {history.map((item) => (
+            <HistoryCard key={item.id} item={item} imageUrl={imageUrls[item.id]} onDelete={() => handleDelete(item)} />
+          ))}
         </section>
       )}
     </div>
+  );
+}
+
+function HistoryCard({ item, imageUrl, onDelete }) {
+  const isSafe = isSafeHistoryItem(item);
+  const status = item.analysis?.status || item.status;
+  const style = getStatusStyle(status);
+  const StatusIcon = isSafe ? CheckCircle2 : ShieldAlert;
+
+  return (
+    <article className="surface-card p-4 sm:p-5">
+      <div className="grid gap-4 md:grid-cols-[144px_1fr_auto] md:items-center">
+        <HistoryThumbnail imageUrl={imageUrl} productName={item.productName} />
+
+        <div className="min-w-0">
+          <h2 className="truncate text-xl font-extrabold text-[#1d252b]">{item.productName || 'Produit sans nom'}</h2>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className={`status-pill ${style.badge}`}>
+              <StatusIcon className="h-4 w-4" aria-hidden="true" />
+              {item.analysis?.label || style.label}
+            </span>
+            <span className="text-xs font-bold text-slate-500">{formatDate(item)}</span>
+          </div>
+          <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">{formatIngredients(item)}</p>
+          <WordBadges item={item} />
+        </div>
+
+        <button
+          type="button"
+          onClick={onDelete}
+          className="secondary-btn border-red-200 text-red-700 hover:border-red-200 hover:bg-red-50 hover:text-red-700 md:self-start"
+          aria-label="Supprimer cette analyse"
+        >
+          <Trash2 className="h-4 w-4" aria-hidden="true" />
+          Supprimer
+        </button>
+      </div>
+    </article>
   );
 }
 
@@ -146,23 +160,37 @@ function WordBadges({ item }) {
   );
 }
 
-function HistoryThumbnail({ item }) {
-  const src = item.imageData || item.imagePreview || item.preview || item.imageUrl;
-
-  if (src) {
+function HistoryThumbnail({ imageUrl, productName }) {
+  if (imageUrl) {
     return (
       <img
-        src={src}
-        alt="Étiquette sauvegardée"
-        className="h-36 w-full shrink-0 rounded-[1.25rem] border border-[#dfe8df] bg-[#f7f8f6] object-cover sm:h-28 sm:w-32"
+        src={imageUrl}
+        alt={productName || 'Produit analysé'}
+        className="aspect-[4/3] w-full rounded-[1.25rem] border border-[#dfe8df] bg-[#f7f8f6] object-cover md:h-32"
         loading="lazy"
       />
     );
   }
 
   return (
-    <span className="flex h-36 w-full shrink-0 items-center justify-center rounded-[1.25rem] border border-[#dfe8df] bg-[#f7f8f6] text-[#008f45] sm:h-28 sm:w-32">
+    <span className="flex aspect-[4/3] w-full items-center justify-center rounded-[1.25rem] border border-[#dfe8df] bg-[#f7f8f6] text-[#008f45] md:h-32">
       <Image className="h-8 w-8" aria-hidden="true" />
     </span>
   );
+}
+
+async function resolveSignedUrls(rows) {
+  const entries = await Promise.all(
+    rows.map(async (item) => {
+      if (!item.imagePath) return [item.id, ''];
+
+      try {
+        return [item.id, await getSignedAnalysisImageUrl(item.imagePath)];
+      } catch {
+        return [item.id, ''];
+      }
+    }),
+  );
+
+  return Object.fromEntries(entries);
 }

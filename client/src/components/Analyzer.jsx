@@ -15,6 +15,7 @@ const CHATBOT_CONTEXT_KEY = 'glutisafe_last_scan_context';
 export default function Analyzer({ latestResult, onResult, onNavigate }) {
   const [method, setMethod] = useState('upload');
   const [file, setFile] = useState(null);
+  const [productName, setProductName] = useState('');
   const [preview, setPreview] = useState('');
   const [imageData, setImageData] = useState('');
   const [text, setText] = useState('');
@@ -25,6 +26,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
   const [isExtracting, setIsExtracting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState('');
+  const [saveWarning, setSaveWarning] = useState('');
   const [saved, setSaved] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
 
@@ -32,6 +34,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
 
   function resetAll() {
     setFile(null);
+    setProductName('');
     setPreview('');
     setImageData('');
     setText('');
@@ -40,6 +43,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
     setOcrWarning('');
     setOcrEngine('');
     setAnalysisError('');
+    setSaveWarning('');
     setSaved(false);
     onResult(null);
   }
@@ -50,6 +54,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
     setOcrWarning('');
     setOcrEngine('');
     setAnalysisError('');
+    setSaveWarning('');
     setProgress(0);
     onResult(null);
   }
@@ -115,13 +120,22 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
   async function handleAnalyze() {
     setIsAnalyzing(true);
     setAnalysisError('');
+    setSaveWarning('');
     setSaved(false);
 
     try {
       const result = await fullAnalysis(text);
-      const savedAnalysis = await logCompletedScan({ result, text, inputType: method });
+      const savedAnalysis = await logCompletedScan({ result, text, inputType: method, productName, imageFile: file });
+      if (savedAnalysis?.imageUploadWarning) setSaveWarning(savedAnalysis.imageUploadWarning);
       saveChatbotScanContext(result, text);
-      onResult({ ...result, text, inputType: method, imageData, savedAnalysisId: savedAnalysis?.id });
+      onResult({
+        ...result,
+        text,
+        inputType: method,
+        imageData,
+        savedAnalysisId: savedAnalysis?.id,
+        productName: savedAnalysis?.productName || productName || 'Produit sans nom',
+      });
     } catch (error) {
       setAnalysisError(error.message || "Impossible d'analyser les ingrédients pour le moment.");
     } finally {
@@ -157,6 +171,15 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
           <div className="relative">
             <InputMethodTabs value={method} onChange={handleMethodChange} />
             <div className="mt-6 space-y-5">
+              <label className="block">
+                <span className="text-sm font-bold text-slate-700">Nom du produit (optionnel)</span>
+                <input
+                  className="field-control mt-2"
+                  placeholder="Ex: Yaourt fraise, Pâtes Barilla, Biscuit sans gluten…"
+                  value={productName}
+                  onChange={(event) => setProductName(event.target.value)}
+                />
+              </label>
               {isImageMode ? (
                 <>
                   <ImageUploader
@@ -204,6 +227,9 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
               )}
               {analysisError ? (
                 <p className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">{analysisError}</p>
+              ) : null}
+              {saveWarning ? (
+                <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">{saveWarning}</p>
               ) : null}
             </div>
           </div>

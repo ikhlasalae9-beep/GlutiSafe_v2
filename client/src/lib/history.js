@@ -1,5 +1,6 @@
 import { getCurrentUser } from './auth.js';
 import { requireSupabaseClient } from './supabaseClient.js';
+import { deleteAnalysisImage, uploadAnalysisImage } from './storage.js';
 
 export function textPreview(text = '') {
   const clean = String(text).replace(/\s+/g, ' ').trim();
@@ -12,7 +13,7 @@ export async function getHistory() {
 
   const { data, error } = await requireSupabaseClient()
     .from('analyses')
-    .select('id, input_type, ocr_text, status, label, detected_words, possible_words, safe_claims, confidence, explanation, created_at')
+    .select('id, input_type, ocr_text, status, label, detected_words, possible_words, safe_claims, confidence, explanation, product_name, image_path, created_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(50);
@@ -30,6 +31,18 @@ export async function saveAnalysis(entry) {
   if (entry.id) return entry;
 
   const analysis = entry.analysis || {};
+  const productName = String(entry.productName || '').trim() || 'Produit sans nom';
+  let imagePath = '';
+  let imageUploadWarning = '';
+
+  if (entry.imageFile) {
+    try {
+      imagePath = await uploadAnalysisImage(entry.imageFile, user.id);
+    } catch {
+      imageUploadWarning = "L'analyse a été sauvegardée, mais l'image n'a pas pu être enregistrée.";
+    }
+  }
+
   const payload = {
     user_id: user.id,
     input_type: entry.inputType || 'manual',
@@ -41,17 +54,20 @@ export async function saveAnalysis(entry) {
     safe_claims: analysis.safeClaims || [],
     confidence: analysis.confidence || '',
     explanation: entry.explanation || '',
+    product_name: productName,
+    image_path: imagePath || null,
   };
 
   const { data, error } = await requireSupabaseClient().from('analyses').insert(payload).select('id').single();
   if (error) throw new Error(error.message || "Impossible d'enregistrer l'analyse.");
 
-  return { ...entry, id: data.id, createdAt: new Date().toISOString() };
+  return { ...entry, id: data.id, createdAt: new Date().toISOString(), productName, imagePath, imageUploadWarning };
 }
 
-export async function deleteAnalysis(id) {
+export async function deleteAnalysis(id, imagePath = '') {
   const { error } = await requireSupabaseClient().from('analyses').delete().eq('id', id);
   if (error) throw new Error(error.message || "Impossible de supprimer l'analyse.");
+  if (imagePath) await deleteAnalysisImage(imagePath);
   return getHistory();
 }
 
@@ -78,6 +94,8 @@ function normalizeAnalysisRow(row = {}) {
     id: row.id,
     createdAt: row.created_at,
     inputType: row.input_type || 'manual',
+    productName: row.product_name || 'Produit sans nom',
+    imagePath: row.image_path || '',
     fullText: row.ocr_text || '',
     textPreview: textPreview(row.ocr_text || ''),
     explanation: row.explanation || '',

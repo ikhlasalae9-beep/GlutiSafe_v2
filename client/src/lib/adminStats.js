@@ -25,7 +25,7 @@ export async function fetchAdminDashboard() {
     client
       .from('analyses')
       .select(
-        'id, user_id, input_type, ocr_text, status, label, detected_words, possible_words, safe_claims, confidence, explanation, created_at',
+        'id, user_id, input_type, ocr_text, status, label, detected_words, possible_words, safe_claims, confidence, explanation, product_name, image_path, created_at',
       )
       .order('created_at', { ascending: false })
       .limit(DASHBOARD_LIMITS.analyses),
@@ -165,6 +165,8 @@ function normalizeAdminAnalysis(analysis = {}, userById = new Map()) {
     userId: analysis.user_id,
     userName: user?.name || 'Utilisateur',
     userEmail: user?.email || '',
+    productName: analysis.product_name || 'Produit sans nom',
+    imagePath: analysis.image_path || '',
     inputType: analysis.input_type || 'manual',
     ocrText: analysis.ocr_text || '',
     status: analysis.status || 'UNKNOWN',
