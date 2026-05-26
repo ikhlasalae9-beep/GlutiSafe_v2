@@ -54,13 +54,17 @@ PRODUCTION_CLIENT_URL=https://your-vercel-domain.vercel.app
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your_publishable_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_server_side_service_role_key
-GEMINI_API_KEY=your_gemini_key
-GEMINI_MODEL=gemini-2.5-flash
+GITHUB_MODELS_TOKEN=your_github_models_token
+GITHUB_TOKEN=your_github_token_fallback
+GITHUB_MODELS_BASE_URL=https://models.github.ai/inference
+GITHUB_MODELS_MODEL=openai/gpt-4o
+AI_PROVIDER=OpenAI
+AI_MODEL=gpt-4o
 OCR_SPACE_API_KEY=your_ocr_space_key
 OCR_SPACE_API_URL=https://api.ocr.space/parse/image
 ```
 
-Manual input and rule-based analysis work even if AI services are unavailable. Explanations and chatbot responses use Gemini through backend-only API routes when `GEMINI_API_KEY` is configured.
+Manual input and rule-based analysis work even if AI services are unavailable. Explanations and chatbot responses use GPT-4o through OpenAI / GitHub Models via backend-only API routes when `GITHUB_MODELS_TOKEN` or `GITHUB_TOKEN` is configured.
 
 ## Supabase Setup
 
@@ -113,13 +117,17 @@ VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=your_publishable_key
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your_server_side_service_role_key
-GEMINI_API_KEY=your_gemini_key
-GEMINI_MODEL=gemini-2.5-flash
+GITHUB_MODELS_TOKEN=your_github_models_token
+GITHUB_TOKEN=your_github_token_fallback
+GITHUB_MODELS_BASE_URL=https://models.github.ai/inference
+GITHUB_MODELS_MODEL=openai/gpt-4o
+AI_PROVIDER=OpenAI
+AI_MODEL=gpt-4o
 OCR_SPACE_API_KEY=your_ocr_space_key
 OCR_SPACE_API_URL=https://api.ocr.space/parse/image
 ```
 
-Never add `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY`, or OCR keys as `VITE_*` variables. `VITE_*` values are exposed to the browser bundle. Never commit real `.env` files.
+Never add `SUPABASE_SERVICE_ROLE_KEY`, GitHub/OpenAI model tokens, or OCR keys as `VITE_*` variables. `VITE_*` values are exposed to the browser bundle. Never commit real `.env` files.
 
 For local frontend development with the Express backend, keep:
 

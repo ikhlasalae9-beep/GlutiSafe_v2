@@ -14,7 +14,7 @@ export async function logCompletedScan({ result, text, inputType, productName, i
     });
   } catch {
     // Anonymous users may still analyze products. Failed persistence must not
-    // break the OCR/Gemini analysis flow.
+    // break the OCR/AI analysis flow.
     return null;
   }
 }

@@ -10,7 +10,12 @@ export default function AdminAiUsagePage({ aiUsage }) {
         <AdminStatCard icon={Sparkles} label="Explications IA générées" value={aiUsage.explanationsGenerated} />
         <AdminStatCard icon={FileText} label="Analyses avec explication" value={aiUsage.analysesWithExplanation} />
         <AdminStatCard icon={CalendarClock} label="Dernière utilisation IA" value={formatDate(aiUsage.latestAiUse)} />
-        <AdminStatCard icon={BrainCircuit} label="Fournisseur IA utilisé" value={aiUsage.provider} />
+        <AdminStatCard
+          icon={BrainCircuit}
+          label="Fournisseur IA utilisé"
+          value={aiUsage.provider || 'GPT-4o'}
+          hint={aiUsage.providerSubtitle || 'OpenAI / GitHub Models'}
+        />
       </section>
 
       <section className="rounded-[1.25rem] border border-amber-200 bg-amber-50 p-5 text-sm font-bold text-amber-900">

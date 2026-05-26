@@ -10,7 +10,7 @@ Fichiers principaux :
 - `server/routes/analyze.js`
 - `server/lib/glutenRules.js`
 - `server/lib/explain.js`
-- `server/lib/gemini.js`
+- `server/lib/aiService.js`
 
 Dependances :
 
@@ -19,7 +19,7 @@ Dependances :
 | `express` | API HTTP |
 | `cors` | Autoriser les appels cross-origin |
 | `dotenv` | Charger `server/.env` |
-| `@google/genai` | Gemini pour l'explication |
+| API Fetch | GPT-4o via OpenAI / GitHub Models pour l'explication |
 | `multer` | Present dans les dependances, mais non utilise dans le code analyse |
 
 ## Initialisation
@@ -50,7 +50,7 @@ Il n'y a pas de couche controller/service formelle. La logique est repartie ains
 - Routes HTTP dans `server/routes/analyze.js`.
 - Logique metier dans `server/lib/glutenRules.js`.
 - Gestion de l'explication dans `server/lib/explain.js`.
-- Integration Gemini dans `server/lib/gemini.js`.
+- Integration GPT-4o dans `server/lib/aiService.js`.
 
 ## Middleware
 
@@ -63,16 +63,18 @@ Il n'y a pas actuellement de middleware d'authentification, rate limiting, loggi
 
 ## APIs externes
 
-Le serveur peut utiliser Gemini via `@google/genai`.
+Le serveur peut utiliser GPT-4o via OpenAI / GitHub Models.
 
 Variables attendues :
 
-- `GEMINI_API_KEY`
-- `GEMINI_MODEL`
+- `GITHUB_MODELS_TOKEN` ou `GITHUB_TOKEN`
+- `GITHUB_MODELS_MODEL=openai/gpt-4o`
+- `AI_PROVIDER=OpenAI`
+- `AI_MODEL=gpt-4o`
 
 La cle API est lue depuis l'environnement cote serveur. Elle n'est pas exposee au client.
 
-Important : Gemini ne decide pas le verdict. `server/lib/gemini.js` recoit un prompt qui indique que le verdict est deja fixe.
+Important : GPT-4o ne decide pas le verdict. Le prompt indique que le verdict est deja fixe.
 
 ## Upload de fichiers
 
@@ -84,8 +86,8 @@ La dependance `multer` est presente dans `server/package.json`, mais aucun endpo
 
 Points existants :
 
-- `generateExplanation` capture les erreurs Gemini et retourne un fallback local.
-- Si `GEMINI_API_KEY` est absente, le serveur continue de fonctionner avec fallback.
+- `generateExplanation` capture les erreurs IA et retourne un fallback local.
+- Si le token GitHub Models est absent, le serveur continue de fonctionner avec fallback.
 
 Limites :
 
@@ -96,9 +98,9 @@ Limites :
 ## Forces
 
 - API simple et lisible.
-- Separation correcte entre routes, regles et integration Gemini.
+- Separation correcte entre routes, regles et integration GPT-4o.
 - Le verdict reste deterministe et local.
-- Fonctionnement degrade acceptable sans Gemini.
+- Fonctionnement degrade acceptable sans fournisseur IA.
 - Tests manuels de regles presents dans `server/test-glutenRules.js`.
 
 ## Problemes et opportunites d'amelioration
@@ -108,7 +110,6 @@ Limites :
 | Haute | Validation d'entree absente | Ajouter une validation schema pour `text`, `analysis`, tableaux de mots |
 | Haute | CORS trop ouvert | Restreindre les origins selon environnement |
 | Moyenne | Pas de middleware d'erreur centralise | Harmoniser les erreurs JSON |
-| Moyenne | Pas de rate limiting | Protege surtout `/api/explain` si Gemini est active |
-| Moyenne | Encodage de chaines | Plusieurs textes francais apparaissent mal encodes dans `explain.js` et `gemini.js` |
+| Moyenne | Pas de rate limiting | Protege surtout `/api/explain` si l'IA est active |
+| Moyenne | Encodage de chaines | Plusieurs textes francais apparaissent mal encodes dans `explain.js` et `aiService.js` |
 | Basse | `multer` inutilise | Supprimer plus tard si l'upload reste dans `ocr-service/`, ou documenter son usage futur |
-

@@ -38,4 +38,4 @@ uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 - `GET /ocr/status`
 - `POST /ocr/extract` with `multipart/form-data`, field name `image`
 
-The OCR service does not use Gemini and does not require `GEMINI_API_KEY`.
+The OCR service does not call the AI provider and does not require GitHub/OpenAI model tokens.

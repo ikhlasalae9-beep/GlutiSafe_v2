@@ -13,7 +13,7 @@ Les risques principaux sont fonctionnels et securite : la page d'analyse active 
 - Code globalement lisible.
 - Separation correcte des appels API dans `client/src/lib/`.
 - Separation correcte des regles dans `server/lib/glutenRules.js`.
-- Fallback local robuste si Gemini n'est pas configure.
+- Fallback local robuste si le fournisseur IA n'est pas configure.
 - Nettoyage des fichiers temporaires OCR dans `finally`.
 
 ### Points a corriger
@@ -66,7 +66,7 @@ Le projet peut supporter une utilisation locale ou MVP, mais devra evoluer pour 
 - Ajouter un stockage serveur pour utilisateurs et historique.
 - Ajouter une file ou strategie de scaling pour OCR si le trafic augmente.
 - Ajouter cache ou warmup EasyOCR.
-- Proteger Gemini contre les appels excessifs.
+- Proteger les endpoints IA contre les appels excessifs.
 - Ajouter monitoring et logs structures.
 
 ## Gestion d'erreurs
@@ -74,7 +74,7 @@ Le projet peut supporter une utilisation locale ou MVP, mais devra evoluer pour 
 Points positifs :
 
 - Le client gere l'indisponibilite OCR avec un message et propose la saisie manuelle.
-- Gemini a un fallback local.
+- Le fournisseur IA a un fallback local.
 - Le service OCR renvoie `success: false` si le moteur n'est pas pret.
 
 Points faibles :
@@ -92,7 +92,7 @@ Points faibles :
 | CORS ouvert | Haute | `server/index.js` utilise `cors()` sans restriction |
 | Upload OCR | Haute | Pas de limite explicite taille/type |
 | Secrets | Moyenne | Les `.env.example` sont corrects, mais les `.env` doivent rester exclus |
-| Gemini | Moyenne | Sans rate limit, couts ou abus possibles |
+| GPT-4o | Moyenne | Sans rate limit, couts ou abus possibles |
 | Donnees locales | Moyenne | Historique en clair dans le navigateur |
 
 ## Risques performance
@@ -116,4 +116,3 @@ Points faibles :
 ## Conclusion
 
 Le coeur technique est bon pour un MVP : extraction OCR, moteur de regles, explication prudente. Avant une demonstration serieuse ou une mise en production, il faut surtout reconnecter l'UI active au flux reel, corriger les contrats de composants et durcir les points securite autour de l'authentification, CORS et uploads.
-

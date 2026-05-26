@@ -43,15 +43,15 @@ Responsabilites principales :
 - Exposer les endpoints `/api/*`.
 - Normaliser et analyser les ingredients.
 - Classer le resultat en `CONTAINS_GLUTEN`, `POSSIBLE_RISK`, `NO_GLUTEN_DETECTED` ou `INSUFFICIENT_INFO`.
-- Generer une explication en francais via Gemini ou fallback local.
+- Generer une explication en francais via GPT-4o ou fallback local.
 
 Fichiers principaux :
 
 - `server/index.js` : initialisation Express, CORS, JSON body parser, health check.
 - `server/routes/analyze.js` : endpoints d'analyse et d'explication.
 - `server/lib/glutenRules.js` : moteur de regles.
-- `server/lib/explain.js` : selection Gemini ou fallback.
-- `server/lib/gemini.js` : client Gemini.
+- `server/lib/explain.js` : explication locale prudente pour le verdict.
+- `server/lib/aiService.js` : client GPT-4o via OpenAI / GitHub Models.
 
 ## Role du service OCR
 
@@ -77,7 +77,7 @@ Fichiers principaux :
 |---|---|---|---|
 | Navigateur React | OCR FastAPI | HTTP `multipart/form-data` | Extraction de texte depuis une image |
 | Navigateur React | API Express | HTTP JSON | Analyse des ingredients |
-| API Express | Gemini | API externe | Explication courte du verdict, si configure |
+| API Express | OpenAI / GitHub Models | API externe | Explication courte du verdict, si configure |
 
 ## Diagramme de flux de donnees
 
@@ -89,8 +89,8 @@ flowchart TD
   C -->|Texte corrige: JSON| API[Serveur Express]
   API --> RULES[Moteur de regles gluten]
   RULES --> API
-  API -->|Optionnel: prompt explicatif| GEMINI[Gemini API]
-  GEMINI -->|Explication| API
+  API -->|Optionnel: prompt explicatif| AI[GPT-4o via OpenAI / GitHub Models]
+  AI -->|Explication| API
   API -->|Analyse + explication| C
   C -->|Sauvegarde locale| LS[localStorage]
 ```
@@ -132,4 +132,3 @@ Reponse typique :
 - Le client conserve l'utilisateur et l'historique dans `localStorage`.
 - Le service OCR telecharge ou charge les modeles EasyOCR dans `OCR_MODEL_DIR`.
 - A verifier : en production, il faudrait proteger les CORS, limiter la taille des uploads et centraliser les logs.
-

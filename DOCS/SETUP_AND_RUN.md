@@ -22,7 +22,7 @@ server/.env.example      -> server/.env
 ocr-service/.env.example -> ocr-service/.env
 ```
 
-Ne pas commiter les fichiers `.env`. Ils peuvent contenir des informations sensibles comme `GEMINI_API_KEY`.
+Ne pas commiter les fichiers `.env`. Ils peuvent contenir des informations sensibles comme `GITHUB_MODELS_TOKEN`.
 
 ## Installation des dependances
 
@@ -158,7 +158,7 @@ Ce test verifie plusieurs cas en francais, anglais, espagnol et chinois.
 | Port `5173` deja utilise | Un autre Vite tourne deja | Arreter l'ancien processus ou changer le port |
 | Port `5000` deja utilise | API deja lancee | Arreter l'ancien serveur ou modifier `PORT` |
 | Port `8000` deja utilise | Service OCR deja lance | Arreter l'ancien Uvicorn ou changer le port |
-| `GEMINI_API_KEY is not configured` | Cle Gemini absente | Normal pour le mode fallback ; ajouter la cle seulement si necessaire |
+| `GITHUB_MODELS_TOKEN or GITHUB_TOKEN is missing` | Token GitHub Models absent | Normal pour le mode fallback ; ajouter le token seulement si necessaire |
 | EasyOCR lent au premier lancement | Chargement/telechargement des modeles | Attendre le chargement initial |
 | OCR indisponible | Dependances Python manquantes ou EasyOCR en erreur | Reinstaller `requirements.txt`, verifier `/ocr/status` |
 | CORS bloque | URLs client/API incoherentes | Verifier `VITE_API_URL`, `VITE_OCR_API_URL`, `OCR_CORS_ORIGINS` |
@@ -177,4 +177,3 @@ Ou depuis `client/` :
 ```bash
 npm run build
 ```
-

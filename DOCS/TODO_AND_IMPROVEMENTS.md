@@ -19,7 +19,7 @@
 | OCR | Pas de score de confiance retourne au client | Renvoyer les blocs OCR avec confidence et positions |
 | Backend | Validation de payload absente | Ajouter schema de validation pour les routes Express |
 | Backend | Pas de middleware d'erreur global | Standardiser les reponses d'erreur |
-| Backend | Pas de rate limiting | Proteger surtout les endpoints qui peuvent utiliser Gemini |
+| Backend | Pas de rate limiting | Proteger surtout les endpoints qui peuvent utiliser l'IA |
 | UX | Statuts incoherents entre `safe/danger` et statuts backend | Centraliser le mapping des statuts |
 | UX | Pages non routees et composants demos | Supprimer ou isoler les demos plus tard apres validation |
 | Tests | Tests limites au moteur de regles | Ajouter tests API et tests frontend essentiels |
@@ -90,4 +90,3 @@
 - Ajouter une matrice des variables d'environnement par environnement.
 - Ajouter captures d'ecran apres stabilisation UI.
 - Ajouter une checklist de release.
-

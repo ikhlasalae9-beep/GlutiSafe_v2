@@ -99,7 +99,7 @@ Reponse :
 
 Notes :
 
-- Utilise Gemini si `GEMINI_API_KEY` est configuree.
+- Utilise GPT-4o via OpenAI / GitHub Models si `GITHUB_MODELS_TOKEN` ou `GITHUB_TOKEN` est configure.
 - Sinon retourne une explication locale.
 
 ### POST `/api/full-analysis`
@@ -233,4 +233,3 @@ Notes :
 - Le champ fichier doit s'appeler `image`.
 - Le service supprime le fichier temporaire apres traitement.
 - Le client remplace les espaces multiples par un seul espace avant affichage.
-

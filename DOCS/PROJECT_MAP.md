@@ -22,7 +22,7 @@ GlutiSafe/
 │  ├─ lib/
 │  │  ├─ glutenRules.js
 │  │  ├─ explain.js
-│  │  └─ gemini.js
+│  │  └─ aiService.js
 │  ├─ test-glutenRules.js
 │  └─ package.json
 ├─ ocr-service/
@@ -105,8 +105,8 @@ GlutiSafe/
 | `server/index.js` | Demarrage Express, CORS, JSON, health check |
 | `server/routes/analyze.js` | Routes d'analyse et d'explication |
 | `server/lib/glutenRules.js` | Moteur de regles gluten |
-| `server/lib/explain.js` | Fallback local ou Gemini |
-| `server/lib/gemini.js` | Integration Gemini |
+| `server/lib/explain.js` | Explication locale prudente |
+| `server/lib/aiService.js` | Integration GPT-4o via OpenAI / GitHub Models |
 | `server/test-glutenRules.js` | Tests manuels de detection |
 | `server/.env.example` | Variables serveur attendues |
 
@@ -135,4 +135,3 @@ GlutiSafe/
 | `DOCS/PROJECT_MAP.md` | Carte des fichiers |
 | `DOCS/TODO_AND_IMPROVEMENTS.md` | Plan d'amelioration |
 | `DOCS/CODE_REVIEW_REPORT.md` | Revue technique |
-

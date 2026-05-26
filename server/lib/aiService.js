@@ -21,7 +21,6 @@ Gluten guidance:
 
 const DEFAULT_GITHUB_MODELS_BASE_URL = 'https://models.github.ai/inference';
 const DEFAULT_GITHUB_MODELS_MODEL = 'openai/gpt-4o';
-const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
 const DEFAULT_TIMEOUT_MS = 30000;
 
 export class AiServiceError extends Error {
@@ -35,11 +34,6 @@ export class AiServiceError extends Error {
 }
 
 export async function createChatCompletion({ messages, temperature = 0.3, maxTokens = 500 }) {
-  const geminiKey = String(process.env.GEMINI_API_KEY || '').trim();
-  if (geminiKey) {
-    return createGeminiCompletion({ messages, temperature, maxTokens, apiKey: geminiKey });
-  }
-
   const token = String(process.env.GITHUB_MODELS_TOKEN || process.env.GITHUB_TOKEN || '').trim();
   const baseUrl = String(process.env.GITHUB_MODELS_BASE_URL || DEFAULT_GITHUB_MODELS_BASE_URL)
     .trim()
@@ -120,67 +114,6 @@ export async function createChatCompletion({ messages, temperature = 0.3, maxTok
     throw new AiServiceError('Unable to reach GitHub Models.', {
       status: 503,
       code: 'GITHUB_MODELS_NETWORK_ERROR',
-      details: error?.message,
-    });
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-async function createGeminiCompletion({ messages, temperature, maxTokens, apiKey }) {
-  const model = String(process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL).trim();
-  const requestUrl = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), Number(process.env.GEMINI_TIMEOUT_MS || DEFAULT_TIMEOUT_MS));
-
-  try {
-    const response = await fetch(requestUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        systemInstruction: {
-          parts: [{ text: messages.filter((message) => message.role === 'system').map((message) => message.content).join('\n') }],
-        },
-        contents: messages
-          .filter((message) => message.role !== 'system')
-          .map((message) => ({
-            role: message.role === 'assistant' ? 'model' : 'user',
-            parts: [{ text: String(message.content || '') }],
-          })),
-        generationConfig: {
-          temperature,
-          maxOutputTokens: maxTokens,
-        },
-      }),
-      signal: controller.signal,
-    });
-
-    const { payload, rawBody } = await readResponseBody(response);
-    console.log('[chatbot:gemini] response status', response.status);
-
-    if (!response.ok) {
-      console.error('[chatbot:gemini] failure body', rawBody || payload);
-      throw new AiServiceError('Gemini request failed.', {
-        status: response.status >= 500 ? 502 : 503,
-        code: 'GEMINI_API_ERROR',
-        details: payload?.error?.message || rawBody,
-      });
-    }
-
-    const content = payload?.candidates?.[0]?.content?.parts?.map((part) => part.text).filter(Boolean).join('\n').trim();
-    if (!content) {
-      throw new AiServiceError('Gemini returned an empty response.', {
-        status: 502,
-        code: 'GEMINI_EMPTY_RESPONSE',
-      });
-    }
-
-    return content;
-  } catch (error) {
-    if (error instanceof AiServiceError) throw error;
-    throw new AiServiceError('Unable to reach Gemini.', {
-      status: error?.name === 'AbortError' ? 504 : 503,
-      code: error?.name === 'AbortError' ? 'GEMINI_TIMEOUT' : 'GEMINI_NETWORK_ERROR',
       details: error?.message,
     });
   } finally {
