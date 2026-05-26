@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { activateUserPack, blockUser, expireUserPack, makeUserAdmin, readAdminStats } from '../lib/adminStats.js';
+import { activateUserPack, blockUser, deleteUserAccount, expireUserPack, makeUserAdmin, readAdminStats, unblockUser } from '../lib/adminStats.js';
 
 const router = Router();
 
@@ -49,11 +49,36 @@ router.post('/admin/users/:id/block', async (req, res) => {
   }
 });
 
+router.post('/admin/users/:id/unblock', async (req, res) => {
+  try {
+    const result = await unblockUser({
+      requesterToken: readBearerToken(req),
+      userId: req.params.id,
+    });
+    res.json(result);
+  } catch (error) {
+    sendAdminError(res, error);
+  }
+});
+
 router.post('/admin/users/:id/make-admin', async (req, res) => {
   try {
     const result = await makeUserAdmin({
       requesterToken: readBearerToken(req),
       userId: req.params.id,
+    });
+    res.json(result);
+  } catch (error) {
+    sendAdminError(res, error);
+  }
+});
+
+router.post('/admin/delete-user', async (req, res) => {
+  try {
+    const result = await deleteUserAccount({
+      requesterToken: readBearerToken(req),
+      userId: req.body?.userId,
+      deleteAnalyses: Boolean(req.body?.deleteAnalyses),
     });
     res.json(result);
   } catch (error) {

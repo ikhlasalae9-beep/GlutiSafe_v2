@@ -90,6 +90,19 @@ export async function blockUser({ requesterToken, userId }) {
   return { profile };
 }
 
+export async function unblockUser({ requesterToken, userId }) {
+  const config = requireSupabaseConfig();
+  await requireAdmin(config, requesterToken);
+  const profile = await updateProfile(config, userId, {
+    pack_status: 'free',
+    pack_type: 'none',
+    pack_start_at: null,
+    pack_end_at: null,
+  });
+
+  return { profile };
+}
+
 export async function makeUserAdmin({ requesterToken, userId }) {
   const config = requireSupabaseConfig();
   await requireAdmin(config, requesterToken);
@@ -98,6 +111,41 @@ export async function makeUserAdmin({ requesterToken, userId }) {
   });
 
   return { profile };
+}
+
+export async function deleteUserAccount({ requesterToken, userId, deleteAnalyses = false }) {
+  const config = requireSupabaseConfig();
+  await requireAdmin(config, requesterToken);
+
+  if (deleteAnalyses) {
+    await supabaseRequest(config, 'analyses', {
+      method: 'DELETE',
+      query: { user_id: `eq.${userId}` },
+      headers: { Prefer: 'return=minimal' },
+    });
+  }
+
+  await supabaseRequest(config, 'profiles', {
+    method: 'DELETE',
+    query: { id: `eq.${userId}` },
+    headers: { Prefer: 'return=minimal' },
+  });
+
+  const authResponse = await fetch(`${config.url}/auth/v1/admin/users/${encodeURIComponent(userId)}`, {
+    method: 'DELETE',
+    headers: {
+      apikey: config.serviceRoleKey,
+      Authorization: `Bearer ${config.serviceRoleKey}`,
+    },
+  });
+
+  if (!authResponse.ok && authResponse.status !== 404) {
+    const error = new Error('La suppression complète du compte Auth nécessite une action serveur sécurisée.');
+    error.status = authResponse.status;
+    throw error;
+  }
+
+  return { deleted: true };
 }
 
 function getSupabaseConfig() {

@@ -1,44 +1,69 @@
-import { cleanSupabaseError } from './auth.js';
 import { API_URL } from '../config/api.js';
-import { requireSupabaseClient } from './supabaseClient.js';
+import { cleanSupabaseError, getCurrentProfile } from './auth.js';
+import { SUPABASE_URL, isSupabaseConfigured, requireSupabaseClient } from './supabaseClient.js';
 
-const ADMIN_STATS_ERROR = 'Impossible de charger les statistiques admin.';
+const DASHBOARD_LIMITS = {
+  users: 500,
+  analyses: 1000,
+  subscriptions: 500,
+};
 
 export async function fetchAdminDashboard() {
   const client = requireSupabaseClient();
 
-  const [usersCountResult, scansCountResult, usersResult, analysesResult, analysisStatusResult, mainAdminResult] = await Promise.all([
-    client.from('profiles').select('id', { count: 'exact', head: true }),
-    client.from('analyses').select('id', { count: 'exact', head: true }),
-    client
-      .from('profiles')
-      .select('id, full_name, email, role, pack_status, pack_type, pack_end_at, created_at')
-      .order('created_at', { ascending: false })
-      .limit(20),
-    client
-      .from('analyses')
-      .select('id, user_id, input_type, status, label, confidence, created_at')
-      .order('created_at', { ascending: false })
-      .limit(12),
-    client.from('analyses').select('status'),
-    client.from('profiles').select('full_name,email').eq('role', 'admin').order('created_at', { ascending: true }).limit(1).maybeSingle(),
-  ]);
-
-  const firstError = [usersCountResult, scansCountResult, usersResult, analysesResult, analysisStatusResult, mainAdminResult].find((result) => result.error)?.error;
-  if (firstError) {
-    throw new Error(cleanSupabaseError(firstError) || ADMIN_STATS_ERROR);
+  const profile = await getCurrentProfile();
+  if (profile?.role !== 'admin') {
+    throw new Error("Accès refusé. Ce compte n'est pas administrateur.");
   }
 
-  const userById = new Map((usersResult.data || []).map((user) => [user.id, normalizeAdminUser(user)]));
+  const [profilesResult, analysesResult, subscriptionsResult] = await Promise.all([
+    client
+      .from('profiles')
+      .select('id, full_name, email, role, pack_status, pack_type, pack_start_at, pack_end_at, created_at')
+      .order('created_at', { ascending: false })
+      .limit(DASHBOARD_LIMITS.users),
+    client
+      .from('analyses')
+      .select(
+        'id, user_id, input_type, ocr_text, status, label, detected_words, possible_words, safe_claims, confidence, explanation, created_at',
+      )
+      .order('created_at', { ascending: false })
+      .limit(DASHBOARD_LIMITS.analyses),
+    fetchOptionalSubscriptions(client),
+  ]);
+
+  const firstError = [profilesResult, analysesResult].find((result) => result.error)?.error;
+  if (firstError) {
+    throw new Error(cleanSupabaseError(firstError) || 'Impossible de charger les données admin.');
+  }
+
+  const users = (profilesResult.data || []).map(normalizeAdminUser);
+  const userById = new Map(users.map((user) => [user.id, user]));
+  const analyses = (analysesResult.data || []).map((analysis) => normalizeAdminAnalysis(analysis, userById));
+  const subscriptions = (subscriptionsResult.data || []).map((subscription) => normalizeSubscription(subscription, userById));
+  const mainAdmin = users.find((user) => user.role === 'admin');
+  const scanStats = buildScanStats(analyses);
 
   return {
-    usersCount: usersCountResult.count || 0,
-    scansCount: scansCountResult.count || 0,
+    admin: profile,
+    users,
+    analyses,
+    subscriptions,
+    usersCount: users.length,
+    scansCount: analyses.length,
     platformStatus: 'Active',
-    mainAdmin: mainAdminResult.data?.full_name || mainAdminResult.data?.email || 'Admin',
-    users: (usersResult.data || []).map(normalizeAdminUser),
-    latestAnalyses: (analysesResult.data || []).map((analysis) => normalizeAdminAnalysis(analysis, userById)),
-    scanStats: buildScanStats(analysisStatusResult.data || []),
+    mainAdmin: mainAdmin?.name || mainAdmin?.email || 'Admin',
+    latestUsers: users.slice(0, 8),
+    latestAnalyses: analyses.slice(0, 8),
+    scanStats,
+    aiUsage: buildAiUsage(analyses),
+    settings: {
+      supabaseConfigured: isSupabaseConfigured,
+      supabaseUrl: SUPABASE_URL,
+      apiUrl: API_URL || 'Same-origin Vercel API',
+      ocrMode: API_URL ? 'Backend OCR API' : 'Vercel OCR API',
+      platformStatus: 'Active',
+    },
   };
 }
 
@@ -60,13 +85,28 @@ export async function runAdminUserAction(userId, action, body = {}) {
     body: JSON.stringify(body),
   });
 
-  const payload = await response.json().catch(() => ({}));
+  return readAdminActionResponse(response);
+}
 
-  if (!response.ok) {
-    throw new Error(payload.message || 'Action admin impossible.');
+export async function deleteAdminUser(userId, { deleteAnalyses = false } = {}) {
+  const client = requireSupabaseClient();
+  const { data } = await client.auth.getSession();
+  const token = data.session?.access_token;
+
+  if (!token) {
+    throw new Error('Session admin introuvable.');
   }
 
-  return payload;
+  const response = await fetch(`${API_URL}/api/admin/delete-user`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ userId, deleteAnalyses }),
+  });
+
+  return readAdminActionResponse(response);
 }
 
 export async function fetchAdminStats() {
@@ -79,6 +119,30 @@ export async function fetchAdminStats() {
   };
 }
 
+async function readAdminActionResponse(response) {
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(payload.message || 'Action admin impossible.');
+  }
+
+  return payload;
+}
+
+async function fetchOptionalSubscriptions(client) {
+  const result = await client
+    .from('subscriptions')
+    .select('id, user_id, pack_name, status, start_date, end_date, activated_by, created_at, updated_at')
+    .order('created_at', { ascending: false })
+    .limit(DASHBOARD_LIMITS.subscriptions);
+
+  if (result.error) {
+    return { data: [], error: null, unavailable: true };
+  }
+
+  return result;
+}
+
 function normalizeAdminUser(profile = {}) {
   return {
     id: profile.id,
@@ -87,32 +151,119 @@ function normalizeAdminUser(profile = {}) {
     role: profile.role || 'user',
     packStatus: profile.pack_status || 'free',
     packType: profile.pack_type || 'none',
+    packStartAt: profile.pack_start_at || null,
     packEndAt: profile.pack_end_at || null,
     createdAt: profile.created_at || null,
   };
 }
 
 function normalizeAdminAnalysis(analysis = {}, userById = new Map()) {
-  const profile = userById.get(analysis.user_id);
+  const user = userById.get(analysis.user_id);
+
   return {
     id: analysis.id,
+    userId: analysis.user_id,
+    userName: user?.name || 'Utilisateur',
+    userEmail: user?.email || '',
     inputType: analysis.input_type || 'manual',
-    status: analysis.status || '',
+    ocrText: analysis.ocr_text || '',
+    status: analysis.status || 'UNKNOWN',
     label: analysis.label || analysis.status || 'Analyse',
+    detectedWords: normalizeArray(analysis.detected_words),
+    possibleWords: normalizeArray(analysis.possible_words),
+    safeClaims: normalizeArray(analysis.safe_claims),
     confidence: analysis.confidence || '',
+    explanation: analysis.explanation || '',
     createdAt: analysis.created_at || null,
-    userName: profile?.name || profile?.email || 'Utilisateur',
   };
 }
 
-function buildScanStats(rows = []) {
-  const counts = rows.reduce((acc, row) => {
-    const status = row.status || 'UNKNOWN';
-    acc[status] = (acc[status] || 0) + 1;
+function normalizeSubscription(subscription = {}, userById = new Map()) {
+  const user = userById.get(subscription.user_id);
+
+  return {
+    id: subscription.id,
+    userId: subscription.user_id,
+    userName: user?.name || 'Utilisateur',
+    userEmail: user?.email || '',
+    packName: subscription.pack_name || 'none',
+    status: subscription.status || 'pending',
+    startDate: subscription.start_date || null,
+    endDate: subscription.end_date || null,
+    createdAt: subscription.created_at || null,
+  };
+}
+
+function buildScanStats(analyses = []) {
+  const statusCounts = countBy(analyses, (analysis) => analysis.status || 'UNKNOWN');
+  const scansByStatus = Object.entries(statusCounts).map(([status, count]) => ({ status, count }));
+  const scansPerDay = Object.entries(countBy(analyses, (analysis) => toDayKey(analysis.createdAt)))
+    .map(([date, count]) => ({ date, count }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const topDetectedWords = Object.entries(
+    analyses.flatMap((analysis) => analysis.detectedWords || []).reduce((acc, word) => {
+      const key = String(word || '').trim();
+      if (key) acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {}),
+  )
+    .map(([word, count]) => ({ word, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+  const mostCommonResult = scansByStatus.sort((a, b) => b.count - a.count)[0]?.status || '-';
+  const usersWithScans = new Set(analyses.map((analysis) => analysis.userId).filter(Boolean)).size;
+
+  return {
+    scansByStatus,
+    scansPerDay,
+    topDetectedWords,
+    mostCommonResult,
+    lastScanDate: analyses[0]?.createdAt || null,
+    glutenCount: statusCounts.CONTAINS_GLUTEN || 0,
+    possibleRiskCount: statusCounts.POSSIBLE_RISK || 0,
+    noGlutenCount: statusCounts.NO_GLUTEN_DETECTED || 0,
+    averageScansPerUser: usersWithScans ? analyses.length / usersWithScans : 0,
+  };
+}
+
+function buildAiUsage(analyses = []) {
+  const withExplanation = analyses.filter((analysis) => String(analysis.explanation || '').trim());
+  const usageByDay = Object.entries(countBy(withExplanation, (analysis) => toDayKey(analysis.createdAt)))
+    .map(([date, count]) => ({ date, count }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  return {
+    explanationsGenerated: withExplanation.length,
+    analysesWithExplanation: withExplanation.length,
+    latestAiUse: withExplanation[0]?.createdAt || null,
+    provider: 'Gemini',
+    usageByDay,
+    latestExplanations: withExplanation.slice(0, 8),
+    detailedTrackingEnabled: false,
+  };
+}
+
+function countBy(items, selector) {
+  return items.reduce((acc, item) => {
+    const key = selector(item) || 'Inconnu';
+    acc[key] = (acc[key] || 0) + 1;
     return acc;
   }, {});
+}
 
-  return Object.entries(counts)
-    .map(([status, count]) => ({ status, count }))
-    .sort((a, b) => b.count - a.count);
+function normalizeArray(value) {
+  if (Array.isArray(value)) return value;
+  if (!value) return [];
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function toDayKey(value) {
+  const date = value ? new Date(value) : new Date();
+  return Number.isNaN(date.getTime()) ? 'Inconnu' : date.toISOString().slice(0, 10);
 }
