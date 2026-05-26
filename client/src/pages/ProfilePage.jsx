@@ -2,7 +2,7 @@ import { Bell, Mail, Save, ShieldCheck, SlidersHorizontal, UserRound } from 'luc
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../components/Button.jsx';
-import { clearStoredUser, getStoredUser } from '../lib/auth.js';
+import { getCurrentProfile, signOut } from '../lib/auth.js';
 import { getHistory, isAlertHistoryItem, isSafeHistoryItem } from '../lib/history.js';
 
 export default function ProfilePage() {
@@ -11,14 +11,28 @@ export default function ProfilePage() {
   const [history, setHistory] = useState([]);
 
   useEffect(() => {
-    const currentUser = getStoredUser();
-    if (!currentUser) {
-      navigate('/login', { replace: true });
-      return;
+    let active = true;
+
+    async function loadProfile() {
+      const currentUser = await getCurrentProfile();
+      if (!currentUser) {
+        navigate('/login', { replace: true });
+        return;
+      }
+
+      const rows = await getHistory();
+      if (!active) return;
+      setUser(currentUser);
+      setHistory(rows);
     }
 
-    setUser(currentUser);
-    setHistory(getHistory(currentUser));
+    loadProfile().catch(() => {
+      if (active) navigate('/login', { replace: true });
+    });
+
+    return () => {
+      active = false;
+    };
   }, [navigate]);
 
   if (!user) return null;
@@ -78,8 +92,8 @@ export default function ProfilePage() {
               <Button variant="secondary" icon={ShieldCheck}>Exporter mes données</Button>
               <Button
                 variant="secondary"
-                onClick={() => {
-                  clearStoredUser();
+                onClick={async () => {
+                  await signOut();
                   navigate('/', { replace: true });
                 }}
               >

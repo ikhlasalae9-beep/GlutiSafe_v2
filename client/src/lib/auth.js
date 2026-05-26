@@ -1,69 +1,8 @@
-export const USER_KEY = 'user';
-export const USERS_KEY = 'glutisafe_users';
-
-export function getStoredUser() {
-  try {
-    const user = JSON.parse(localStorage.getItem(USER_KEY) || 'null');
-    if (!user?.email) return null;
-
-    return {
-      ...user,
-      email: String(user.email).trim().toLowerCase(),
-      name: user.name || String(user.email).split('@')[0] || 'Utilisateur',
-      role: 'user',
-    };
-  } catch {
-    clearStoredUser();
-    return null;
-  }
-}
-
-export function setStoredUser(user) {
-  const email = String(user.email || '').trim().toLowerCase();
-  if (!email) {
-    clearStoredUser();
-    return null;
-  }
-
-  const nextUser = {
-    name: String(user.name || email.split('@')[0] || 'Utilisateur').trim(),
-    email,
-    role: 'user',
-  };
-
-  localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
-  return nextUser;
-}
-
-export function clearStoredUser() {
-  localStorage.removeItem(USER_KEY);
-}
-
-export function getRegisteredUsers() {
-  try {
-    const users = JSON.parse(localStorage.getItem(USERS_KEY) || '[]');
-    return Array.isArray(users)
-      ? users
-          .filter((user) => user?.email)
-          .map((user) => ({
-            ...user,
-            email: String(user.email).trim().toLowerCase(),
-            name: user.name || String(user.email).split('@')[0] || 'Utilisateur',
-            role: 'user',
-          }))
-      : [];
-  } catch {
-    localStorage.removeItem(USERS_KEY);
-    return [];
-  }
-}
-
-export function isAuthenticated() {
-  return Boolean(getStoredUser());
-}
+import { requireSupabaseClient, supabase } from './supabaseClient.js';
 
 export async function registerUser({ name, email, password }) {
-  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const client = requireSupabaseClient();
+  const normalizedEmail = normalizeEmail(email);
   const cleanName = String(name || '').trim();
 
   if (!cleanName || !normalizedEmail || !password) {
@@ -78,45 +17,147 @@ export async function registerUser({ name, email, password }) {
     throw new Error('Le mot de passe doit contenir au moins 6 caracteres.');
   }
 
-  const users = getRegisteredUsers();
-  if (users.some((user) => user.email === normalizedEmail)) {
-    throw new Error('Un compte existe deja avec cet email.');
-  }
-
-  const nextUser = {
-    id: crypto.randomUUID(),
-    name: cleanName,
+  const { data, error } = await client.auth.signUp({
     email: normalizedEmail,
-    passwordHash: await hashPassword(password),
-    role: 'user',
-    createdAt: new Date().toISOString(),
-  };
+    password,
+    options: {
+      data: {
+        full_name: cleanName,
+        name: cleanName,
+      },
+    },
+  });
 
-  localStorage.setItem(USERS_KEY, JSON.stringify([...users, nextUser]));
-  return setStoredUser(nextUser);
+  if (error) throw new Error(cleanAuthError(error));
+  return toAppUser(data.user);
 }
 
 export async function loginUser({ email, password }) {
-  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const client = requireSupabaseClient();
+  const normalizedEmail = normalizeEmail(email);
+
   if (!normalizedEmail || !password) {
     throw new Error('Email et mot de passe sont obligatoires.');
   }
 
-  const user = getRegisteredUsers().find((item) => item.email === normalizedEmail);
-  if (!user || user.passwordHash !== (await hashPassword(password))) {
-    throw new Error('Email ou mot de passe incorrect.');
-  }
+  const { data, error } = await client.auth.signInWithPassword({
+    email: normalizedEmail,
+    password,
+  });
 
-  return setStoredUser(user);
+  if (error) throw new Error(cleanAuthError(error));
+  return toAppUser(data.user);
 }
 
-async function hashPassword(password) {
-  const value = String(password || '');
-  if (!globalThis.crypto?.subtle) return `plain:${value}`;
+export async function signOut() {
+  if (!supabase) return;
+  await supabase.auth.signOut();
+}
 
-  const bytes = new TextEncoder().encode(value);
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('');
+export async function clearStoredUser() {
+  await signOut();
+}
+
+export async function getCurrentUser() {
+  if (!supabase) return null;
+
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user) return null;
+
+  return toAppUser(data.user);
+}
+
+export async function getCurrentProfile() {
+  const user = await getCurrentUser();
+  if (!user || !supabase) return null;
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, full_name, email, role, pack_status, pack_type, pack_start_at, pack_end_at, created_at')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (error) throw new Error(cleanSupabaseError(error));
+  return data ? normalizeProfile(data) : { ...user, role: 'user' };
+}
+
+export function onAuthStateChange(callback) {
+  if (!supabase) {
+    callback(null);
+    return { unsubscribe() {} };
+  }
+
+  const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    callback(session?.user ? toAppUser(session.user) : null);
+  });
+
+  return data.subscription;
+}
+
+export async function isAuthenticated() {
+  return Boolean(await getCurrentUser());
+}
+
+export async function getStoredUser() {
+  return getCurrentUser();
+}
+
+export async function getRegisteredUsers() {
+  const profile = await getCurrentProfile();
+  if (profile?.role !== 'admin') return [];
+
+  const { data, error } = await requireSupabaseClient()
+    .from('profiles')
+    .select('id, full_name, email, role, created_at')
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(cleanSupabaseError(error));
+  return data.map(normalizeProfile);
+}
+
+function toAppUser(user) {
+  if (!user?.id) return null;
+
+  const fullName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Utilisateur';
+  return {
+    id: user.id,
+    name: fullName,
+    email: normalizeEmail(user.email),
+    role: 'user',
+  };
+}
+
+export function normalizeProfile(profile = {}) {
+  return {
+    id: profile.id,
+    name: profile.full_name || profile.email?.split('@')[0] || 'Utilisateur',
+    fullName: profile.full_name || '',
+    email: normalizeEmail(profile.email),
+    role: profile.role || 'user',
+    packStatus: profile.pack_status || 'free',
+    packType: profile.pack_type || 'none',
+    packStartAt: profile.pack_start_at || null,
+    packEndAt: profile.pack_end_at || null,
+    createdAt: profile.created_at || null,
+  };
+}
+
+function normalizeEmail(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function cleanAuthError(error) {
+  if (error?.message?.toLowerCase().includes('invalid login credentials')) {
+    return 'Email ou mot de passe incorrect.';
+  }
+
+  return error?.message || 'Impossible de finaliser cette action.';
+}
+
+export function cleanSupabaseError(error) {
+  if (String(error?.message || '').toLowerCase().includes('row-level security')) {
+    return "Accès refusé par les règles de sécurité Supabase.";
+  }
+
+  return error?.message || 'Erreur Supabase.';
 }

@@ -1,7 +1,7 @@
 import { History, Home, LogOut, Menu, ScanLine, UserRound, X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { clearStoredUser, getStoredUser } from '../lib/auth.js';
+import { getCurrentUser, signOut } from '../lib/auth.js';
 
 const navItems = [
   { label: 'Accueil', path: '/', icon: Home },
@@ -13,12 +13,23 @@ const navItems = [
 export default function SidebarLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const user = getStoredUser();
+  const [user, setUser] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const isLanding = location.pathname === '/';
 
-  const handleSignOut = () => {
-    clearStoredUser();
+  useEffect(() => {
+    let active = true;
+    getCurrentUser().then((currentUser) => {
+      if (active) setUser(currentUser);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleSignOut = async () => {
+    await signOut();
     navigate('/', { replace: true });
   };
 

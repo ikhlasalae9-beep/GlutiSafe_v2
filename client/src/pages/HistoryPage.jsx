@@ -8,19 +8,37 @@ import { getStatusStyle } from '../lib/status.js';
 export default function HistoryPage() {
   const navigate = useNavigate();
   const [history, setHistory] = useState([]);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    const currentUser = getStoredUser();
-    if (!currentUser) {
-      navigate('/login', { replace: true });
-      return;
+    let active = true;
+
+    async function loadHistory() {
+      const currentUser = await getStoredUser();
+      if (!currentUser) {
+        navigate('/login', { replace: true });
+        return;
+      }
+
+      const rows = await getHistory();
+      if (active) setHistory(rows);
     }
 
-    setHistory(getHistory(currentUser));
+    loadHistory().catch((loadError) => {
+      if (active) setError(loadError.message || "Impossible de charger l'historique.");
+    });
+
+    return () => {
+      active = false;
+    };
   }, [navigate]);
 
-  const handleDelete = (id) => {
-    setHistory(deleteAnalysis(id));
+  const handleDelete = async (id) => {
+    try {
+      setHistory(await deleteAnalysis(id));
+    } catch (deleteError) {
+      setError(deleteError.message || "Impossible de supprimer l'analyse.");
+    }
   };
 
   return (
@@ -29,7 +47,7 @@ export default function HistoryPage() {
         <div>
           <p className="brand-kicker">Historique</p>
           <h1 className="mt-2 brand-heading">Analyses sauvegardées</h1>
-          <p className="mt-3 brand-copy max-w-2xl">Consultez les résultats conservés localement pour ce profil.</p>
+          <p className="mt-3 brand-copy max-w-2xl">Consultez les résultats sauvegardés pour ce profil.</p>
         </div>
         <button type="button" onClick={() => navigate('/analyse')} className="primary-btn">
           <ScanLine className="h-4 w-4" aria-hidden="true" />
@@ -37,13 +55,15 @@ export default function HistoryPage() {
         </button>
       </div>
 
+      {error ? <p className="mb-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">{error}</p> : null}
+
       {history.length === 0 ? (
         <section className="surface-card grid min-h-80 place-items-center p-8 text-center">
           <div>
             <Image className="mx-auto h-12 w-12 text-[#a8cfa5]" aria-hidden="true" />
             <h2 className="mt-4 text-2xl font-extrabold text-[#1d252b]">Aucune analyse pour le moment</h2>
             <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
-              Sauvegardez un résultat après analyse pour le retrouver ici.
+              Les analyses réalisées avec votre compte apparaîtront ici.
             </p>
           </div>
         </section>

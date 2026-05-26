@@ -1,7 +1,6 @@
 import { AlertTriangle, CheckCircle2, Keyboard, ScanLine, ShieldCheck } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { fullAnalysis } from '../lib/api.js';
-import { saveAnalysis, textPreview } from '../lib/history.js';
 import { extractTextWithEasyOCR } from '../lib/ocrApi.js';
 import { logCompletedScan } from '../lib/scanStats.js';
 import CameraCapture from './CameraCapture.jsx';
@@ -120,9 +119,9 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
 
     try {
       const result = await fullAnalysis(text);
-      logCompletedScan(result.analysis);
+      const savedAnalysis = await logCompletedScan({ result, text, inputType: method });
       saveChatbotScanContext(result, text);
-      onResult({ ...result, text, inputType: method, imageData });
+      onResult({ ...result, text, inputType: method, imageData, savedAnalysisId: savedAnalysis?.id });
     } catch (error) {
       setAnalysisError(error.message || "Impossible d'analyser les ingrédients pour le moment.");
     } finally {
@@ -132,14 +131,6 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
 
   function handleSave() {
     if (!latestResult) return;
-    saveAnalysis({
-      inputType: latestResult.inputType,
-      textPreview: textPreview(latestResult.text),
-      fullText: latestResult.text,
-      analysis: latestResult.analysis,
-      explanation: latestResult.explanation,
-      imageData: latestResult.imageData || imageData,
-    });
     setSaved(true);
   }
 

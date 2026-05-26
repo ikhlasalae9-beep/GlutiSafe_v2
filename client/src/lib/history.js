@@ -1,55 +1,61 @@
-import { getStoredUser } from './auth.js';
-
-export function getHistoryKey(user = getStoredUser()) {
-  return user?.email ? `history_${user.email}` : null;
-}
+import { getCurrentUser } from './auth.js';
+import { requireSupabaseClient } from './supabaseClient.js';
 
 export function textPreview(text = '') {
   const clean = String(text).replace(/\s+/g, ' ').trim();
   return clean.length > 130 ? `${clean.slice(0, 130)}...` : clean;
 }
 
-export function getHistory(user = getStoredUser()) {
-  const historyKey = getHistoryKey(user);
-  if (!historyKey) return [];
+export async function getHistory() {
+  const user = await getCurrentUser();
+  if (!user) return [];
 
-  try {
-    return JSON.parse(localStorage.getItem(historyKey) || '[]');
-  } catch {
-    return [];
-  }
+  const { data, error } = await requireSupabaseClient()
+    .from('analyses')
+    .select('id, input_type, ocr_text, status, label, detected_words, possible_words, safe_claims, confidence, explanation, created_at')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  if (error) throw new Error(error.message || "Impossible de charger l'historique.");
+  return (data || []).map(normalizeAnalysisRow);
 }
 
-export function saveAnalysis(entry) {
-  const historyKey = getHistoryKey();
-  if (!historyKey) {
-    throw new Error('You must be signed in to save analysis history.');
+export async function saveAnalysis(entry) {
+  const user = await getCurrentUser();
+  if (!user) {
+    throw new Error('Connectez-vous pour sauvegarder cette analyse.');
   }
 
-  const nextEntry = {
-    id: crypto.randomUUID(),
-    createdAt: new Date().toISOString(),
-    inputType: entry.inputType || 'manual',
-    textPreview: entry.textPreview || textPreview(entry.fullText || ''),
-    ...entry,
+  if (entry.id) return entry;
+
+  const analysis = entry.analysis || {};
+  const payload = {
+    user_id: user.id,
+    input_type: entry.inputType || 'manual',
+    ocr_text: entry.fullText || entry.text || '',
+    status: analysis.status || '',
+    label: analysis.label || '',
+    detected_words: analysis.detectedWords || [],
+    possible_words: analysis.possibleWords || [],
+    safe_claims: analysis.safeClaims || [],
+    confidence: analysis.confidence || '',
+    explanation: entry.explanation || '',
   };
-  const next = [nextEntry, ...getHistory()].slice(0, 50);
-  localStorage.setItem(historyKey, JSON.stringify(next));
-  return nextEntry;
+
+  const { data, error } = await requireSupabaseClient().from('analyses').insert(payload).select('id').single();
+  if (error) throw new Error(error.message || "Impossible d'enregistrer l'analyse.");
+
+  return { ...entry, id: data.id, createdAt: new Date().toISOString() };
 }
 
-export function deleteAnalysis(id) {
-  const historyKey = getHistoryKey();
-  if (!historyKey) return [];
-
-  const next = getHistory().filter((item) => item.id !== id);
-  localStorage.setItem(historyKey, JSON.stringify(next));
-  return next;
+export async function deleteAnalysis(id) {
+  const { error } = await requireSupabaseClient().from('analyses').delete().eq('id', id);
+  if (error) throw new Error(error.message || "Impossible de supprimer l'analyse.");
+  return getHistory();
 }
 
-export function clearHistory() {
-  const historyKey = getHistoryKey();
-  if (historyKey) localStorage.removeItem(historyKey);
+export async function clearHistory() {
   return [];
 }
 
@@ -65,4 +71,23 @@ export function isSafeHistoryItem(item) {
 export function isAlertHistoryItem(item) {
   const status = getAnalysisStatus(item);
   return status === 'danger' || status === 'contains_gluten' || status.includes('gluten detected') || status.includes('danger');
+}
+
+function normalizeAnalysisRow(row = {}) {
+  return {
+    id: row.id,
+    createdAt: row.created_at,
+    inputType: row.input_type || 'manual',
+    fullText: row.ocr_text || '',
+    textPreview: textPreview(row.ocr_text || ''),
+    explanation: row.explanation || '',
+    analysis: {
+      status: row.status || '',
+      label: row.label || row.status || 'Analyse',
+      detectedWords: row.detected_words || [],
+      possibleWords: row.possible_words || [],
+      safeClaims: row.safe_claims || [],
+      confidence: row.confidence || '',
+    },
+  };
 }

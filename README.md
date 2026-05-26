@@ -31,7 +31,10 @@ npm run dev
 Create `client/.env` from `client/.env.example`:
 
 ```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your_publishable_key
 VITE_API_URL=http://localhost:5000
+VITE_OCR_API_URL=http://localhost:8000
 ```
 
 ## Backend Setup
@@ -48,30 +51,58 @@ Create `server/.env` from `server/.env.example`:
 PORT=5000
 CLIENT_URL=http://localhost:5173
 PRODUCTION_CLIENT_URL=https://your-vercel-domain.vercel.app
-GITHUB_MODELS_TOKEN=your_token_here
-GITHUB_TOKEN=your_token_here
-GITHUB_MODELS_BASE_URL=https://models.github.ai/inference
-GITHUB_MODELS_MODEL=openai/gpt-4o
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your_publishable_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_server_side_service_role_key
+GEMINI_API_KEY=your_gemini_key
+GEMINI_MODEL=gemini-2.5-flash
+OCR_SPACE_API_KEY=your_ocr_space_key
+OCR_SPACE_API_URL=https://api.ocr.space/parse/image
 ```
 
-Manual input and rule-based analysis work even if AI services are unavailable. The chatbot uses GitHub Models GPT-4o through the backend endpoint `POST /api/chatbot/message`.
+Manual input and rule-based analysis work even if AI services are unavailable. Explanations and chatbot responses use Gemini through backend-only API routes when `GEMINI_API_KEY` is configured.
+
+## Supabase Setup
+
+1. Create a Supabase project.
+2. Open the Supabase SQL editor.
+3. Run `supabase/schema.sql`.
+4. Create the first user account from the GlutiSafe signup page.
+5. Promote that first account manually:
+
+```sql
+update public.profiles
+set role = 'admin'
+where email = 'YOUR_EMAIL';
+```
+
+The schema creates:
+
+- `profiles` for user/admin role and pack state.
+- `analyses` for saved scan results.
+- `subscriptions` for pack activations.
+- `payments` for future payment proof workflows.
+
+Row Level Security is enabled on all tables. Users can only read their own rows; admins can read platform data; protected pack actions use serverless routes with `SUPABASE_SERVICE_ROLE_KEY`.
 
 ## Vercel Deployment
 
 Deploy the `client/` directory on Vercel. The production API functions live in `client/api/`, so the frontend can call same-origin paths such as `/api/chatbot/message` when `VITE_API_URL` is empty.
 
-In Vercel Project Settings, add these environment variables without the `VITE_` prefix:
+In Vercel Project Settings, add these environment variables:
 
 ```env
-GITHUB_MODELS_TOKEN=your_github_models_token_here
-GITHUB_TOKEN=your_github_models_token_here
-GITHUB_MODELS_BASE_URL=https://models.github.ai/inference
-GITHUB_MODELS_MODEL=openai/gpt-4o
-OCR_SPACE_API_KEY=your_ocr_space_api_key_here
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your_publishable_key
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your_server_side_service_role_key
+GEMINI_API_KEY=your_gemini_key
+GEMINI_MODEL=gemini-2.5-flash
+OCR_SPACE_API_KEY=your_ocr_space_key
 OCR_SPACE_API_URL=https://api.ocr.space/parse/image
 ```
 
-Do not add GitHub tokens as `VITE_*` variables, because `VITE_*` values are exposed to the browser bundle.
+Never add `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY`, or OCR keys as `VITE_*` variables. `VITE_*` values are exposed to the browser bundle. Never commit real `.env` files.
 
 For local frontend development with the Express backend, keep:
 
@@ -80,6 +111,27 @@ VITE_API_URL=http://localhost:5000
 ```
 
 For Vercel production, leave `VITE_API_URL` empty or unset so requests use the same deployed domain. OCR image extraction in production uses OCR.space from the Vercel API function, so `OCR_SPACE_API_KEY` must stay server-side and must not use a `VITE_` prefix.
+
+## GitHub and Vercel Checklist
+
+Local:
+
+```bash
+npm install
+cd client && npm install && npm run dev
+cd ../server && npm install && npm run dev
+```
+
+Production:
+
+- Vercel build passes.
+- Signup creates an auth user and a `profiles` row.
+- Login works with Supabase Auth.
+- Admin dashboard shows the real profile count and analysis count.
+- New scans are inserted into `analyses`.
+- Pack activation updates `profiles` and inserts `subscriptions`.
+- No `.env` file is committed.
+- `SUPABASE_SERVICE_ROLE_KEY` is not present in the frontend bundle.
 
 ## OCR Service Setup
 
@@ -112,6 +164,11 @@ OCR_LANGS=ch_sim,en
 - `POST /api/explain`
 - `POST /api/full-analysis`
 - `POST /api/chatbot/message`
+- `GET /api/admin/stats`
+- `POST /api/admin/users/:id/activate-pack`
+- `POST /api/admin/users/:id/expire-pack`
+- `POST /api/admin/users/:id/block`
+- `POST /api/admin/users/:id/make-admin`
 - `GET http://localhost:8000/health` for the optional local EasyOCR service
 - `GET http://localhost:8000/ocr/status` for the optional local EasyOCR service
 - `POST http://localhost:8000/ocr/extract` for the optional local EasyOCR service

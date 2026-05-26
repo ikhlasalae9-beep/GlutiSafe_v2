@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "build": "node --check index.js && node --check routes/chatbot.js && node --check lib/aiService.js && node --check lib/explain.js",
+    "build": "node --check index.js && node --check routes/chatbot.js && node --check routes/admin.js && node --check lib/aiService.js && node --check lib/explain.js && node --check lib/adminStats.js",
     "dev": "node index.js",
     "start": "node index.js",
     "test:rules": "node test-glutenRules.js"

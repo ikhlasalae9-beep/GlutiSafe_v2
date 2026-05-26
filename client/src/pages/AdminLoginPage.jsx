@@ -1,26 +1,32 @@
-import { ArrowLeft, KeyRound, Lock, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Lock, Mail, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Button from '../components/Button.jsx';
-import { loginPrincipalAdmin } from '../lib/adminAuth.js';
+import { getCurrentProfile, loginUser } from '../lib/auth.js';
 
 export default function AdminLoginPage() {
   const navigate = useNavigate();
-  const [identifier, setIdentifier] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      loginPrincipalAdmin({ identifier, password });
+      await loginUser({ email, password });
+      const profile = await getCurrentProfile();
+      if (profile?.role !== 'admin') {
+        setError("Accès refusé. Ce compte n'est pas administrateur.");
+        return;
+      }
+
       navigate('/admin', { replace: true });
-    } catch {
-      setError('Identifiant ou mot de passe incorrect.');
+    } catch (submitError) {
+      setError(submitError.message || 'Email ou mot de passe incorrect.');
     } finally {
       setLoading(false);
     }
@@ -40,18 +46,18 @@ export default function AdminLoginPage() {
               <img src="/logo.png" alt="Logo GlutiSafe" className="h-12 w-12 rounded-2xl bg-white object-contain shadow-sm ring-1 ring-[#dfe8df]" />
               <div>
                 <p className="text-2xl font-extrabold tracking-tight">GlutiSafe Admin</p>
-                <p className="text-sm text-slate-500">Accès privé</p>
+                <p className="text-sm text-slate-500">Connexion Supabase</p>
               </div>
             </div>
 
             <form className="space-y-5" onSubmit={handleSubmit}>
               <label className="block">
-                <span className="text-sm font-bold text-slate-700">Identifiant</span>
-                <Field icon={KeyRound} placeholder="Identifiant admin" required type="text" value={identifier} onChange={(event) => setIdentifier(event.target.value)} />
+                <span className="text-sm font-bold text-slate-700">Email admin</span>
+                <Field icon={Mail} placeholder="admin@example.com" required type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
               </label>
               <label className="block">
                 <span className="text-sm font-bold text-slate-700">Mot de passe</span>
-                <Field icon={Lock} placeholder="Mot de passe admin" required type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
+                <Field icon={Lock} placeholder="Mot de passe" required type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
               </label>
               {error ? <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">{error}</p> : null}
               <Button className="w-full" type="submit" disabled={loading}>
@@ -61,7 +67,7 @@ export default function AdminLoginPage() {
 
             <div className="mt-6 flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-[#008f45]">
               <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-              Principal admin
+              Rôle admin requis
             </div>
           </div>
         </section>

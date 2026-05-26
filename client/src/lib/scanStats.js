@@ -1,41 +1,18 @@
-import { getRegisteredUsers, getStoredUser } from './auth.js';
+import { saveAnalysis } from './history.js';
 
-const SCANS_KEY = 'glutisafe_scan_logs';
+export async function logCompletedScan({ result, text, inputType }) {
+  if (!result?.analysis) return null;
 
-export function logCompletedScan(analysis = {}) {
-  const user = getStoredUser();
-  if (!user?.email) return null;
-
-  const nextScan = {
-    id: crypto.randomUUID(),
-    userEmail: user.email,
-    scanDate: new Date().toISOString(),
-    verdict: analysis.status || analysis.label || 'unknown',
-    createdAt: new Date().toISOString(),
-  };
-
-  localStorage.setItem(SCANS_KEY, JSON.stringify([nextScan, ...getScanLogs()].slice(0, 500)));
-  return nextScan;
-}
-
-export function getScanLogs() {
   try {
-    const logs = JSON.parse(localStorage.getItem(SCANS_KEY) || '[]');
-    return Array.isArray(logs) ? logs : [];
+    return await saveAnalysis({
+      inputType,
+      fullText: text,
+      analysis: result.analysis,
+      explanation: result.explanation,
+    });
   } catch {
-    localStorage.removeItem(SCANS_KEY);
-    return [];
+    // Anonymous users may still analyze products. Failed persistence must not
+    // break the OCR/Gemini analysis flow.
+    return null;
   }
-}
-
-export function getAdminStats() {
-  const scans = getScanLogs();
-  const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-
-  return {
-    usersCount: getRegisteredUsers().length,
-    scansCount: scans.length,
-    recentScansCount: scans.filter((scan) => new Date(scan.createdAt || scan.scanDate).getTime() >= oneWeekAgo).length,
-    status: 'Active',
-  };
 }
