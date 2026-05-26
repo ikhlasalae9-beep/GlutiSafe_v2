@@ -85,6 +85,13 @@ The schema creates:
 
 Row Level Security is enabled on all tables. Users can only read their own rows; admins can read platform data; protected pack actions use serverless routes with `SUPABASE_SERVICE_ROLE_KEY`.
 
+In Supabase Dashboard -> Authentication -> URL Configuration:
+
+- Site URL: `https://gluti-safe-v2.vercel.app`
+- Redirect URLs:
+  - `https://gluti-safe-v2.vercel.app/**`
+  - `http://localhost:5173/**`
+
 ## Vercel Deployment
 
 Deploy the `client/` directory on Vercel. The production API functions live in `client/api/`, so the frontend can call same-origin paths such as `/api/chatbot/message` when `VITE_API_URL` is empty.

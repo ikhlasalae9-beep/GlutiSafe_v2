@@ -17,6 +17,8 @@ export async function registerUser({ name, email, password }) {
     throw new Error('Le mot de passe doit contenir au moins 6 caracteres.');
   }
 
+  const redirectTo = `${window.location.origin}/auth/callback`;
+
   const { data, error } = await client.auth.signUp({
     email: normalizedEmail,
     password,
@@ -25,6 +27,7 @@ export async function registerUser({ name, email, password }) {
         full_name: cleanName,
         name: cleanName,
       },
+      emailRedirectTo: redirectTo,
     },
   });
 

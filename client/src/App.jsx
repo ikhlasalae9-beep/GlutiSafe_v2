@@ -5,6 +5,7 @@ import SidebarLayout from './components/SidebarLayout.jsx';
 import AdminLoginPage from './pages/AdminLoginPage.jsx';
 import AdminPage from './pages/AdminPage.jsx';
 import AnalysisPage from './pages/AnalysisPage.jsx';
+import AuthCallback from './pages/AuthCallback.jsx';
 import AuthPage from './pages/AuthPage.jsx';
 import HistoryPage from './pages/HistoryPage.jsx';
 import HomePage from './pages/HomePage.jsx';
@@ -30,6 +31,7 @@ export default function App() {
         </Route>
         <Route path="/register" element={<AuthPage mode="register" />} />
         <Route path="/login" element={<AuthPage mode="login" />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/admin-secure" element={<AdminLoginPage />} />
         <Route path="/admin-login" element={<Navigate to="/" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
