@@ -1,11 +1,13 @@
 import { API_URL } from '../config/api.js';
 import { cleanSupabaseError, getCurrentProfile } from './auth.js';
+import { getPackDisplayName, getPackStatusLabel, getPackTypeLabel, normalizePackStatus, normalizePackType } from './packs.js';
 import { SUPABASE_URL, isSupabaseConfigured, requireSupabaseClient } from './supabaseClient.js';
 
 const DASHBOARD_LIMITS = {
   users: 500,
   analyses: 1000,
   subscriptions: 500,
+  payments: 500,
 };
 
 export async function fetchAdminDashboard() {
@@ -16,7 +18,7 @@ export async function fetchAdminDashboard() {
     throw new Error("Accès refusé. Ce compte n'est pas administrateur.");
   }
 
-  const [profilesResult, analysesResult, subscriptionsResult] = await Promise.all([
+  const [profilesResult, analysesResult, subscriptionsResult, paymentsResult] = await Promise.all([
     client
       .from('profiles')
       .select('id, full_name, email, role, pack_status, pack_type, pack_start_at, pack_end_at, created_at')
@@ -30,6 +32,7 @@ export async function fetchAdminDashboard() {
       .order('created_at', { ascending: false })
       .limit(DASHBOARD_LIMITS.analyses),
     fetchOptionalSubscriptions(client),
+    fetchOptionalPayments(client),
   ]);
 
   const firstError = [profilesResult, analysesResult].find((result) => result.error)?.error;
@@ -41,6 +44,7 @@ export async function fetchAdminDashboard() {
   const userById = new Map(users.map((user) => [user.id, user]));
   const analyses = (analysesResult.data || []).map((analysis) => normalizeAdminAnalysis(analysis, userById));
   const subscriptions = (subscriptionsResult.data || []).map((subscription) => normalizeSubscription(subscription, userById));
+  const payments = (paymentsResult.data || []).map((payment) => normalizePayment(payment, userById));
   const mainAdmin = users.find((user) => user.role === 'admin');
   const scanStats = buildScanStats(analyses);
 
@@ -49,6 +53,7 @@ export async function fetchAdminDashboard() {
     users,
     analyses,
     subscriptions,
+    payments,
     usersCount: users.length,
     scansCount: analyses.length,
     platformStatus: 'Active',
@@ -109,6 +114,26 @@ export async function deleteAdminUser(userId, { deleteAnalyses = false } = {}) {
   return readAdminActionResponse(response);
 }
 
+export async function runAdminPaymentAction(paymentId, action) {
+  const client = requireSupabaseClient();
+  const { data } = await client.auth.getSession();
+  const token = data.session?.access_token;
+
+  if (!token) {
+    throw new Error('Session admin introuvable.');
+  }
+
+  const response = await fetch(`${API_URL}/api/admin/payments/${paymentId}/${action}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  return readAdminActionResponse(response);
+}
+
 export async function fetchAdminStats() {
   const dashboard = await fetchAdminDashboard();
   return {
@@ -143,14 +168,34 @@ async function fetchOptionalSubscriptions(client) {
   return result;
 }
 
+async function fetchOptionalPayments(client) {
+  const result = await client
+    .from('payments')
+    .select('id, user_id, provider, provider_payment_id, pack_type, amount, currency, status, method, proof_url, created_at, updated_at')
+    .order('created_at', { ascending: false })
+    .limit(DASHBOARD_LIMITS.payments);
+
+  if (result.error) {
+    return { data: [], error: null, unavailable: true };
+  }
+
+  return result;
+}
+
 function normalizeAdminUser(profile = {}) {
+  const packStatus = normalizePackStatus(profile.pack_status);
+  const packType = normalizePackType(profile.pack_type);
+
   return {
     id: profile.id,
     name: profile.full_name || profile.email?.split('@')[0] || 'Utilisateur',
     email: profile.email || '',
     role: profile.role || 'user',
-    packStatus: profile.pack_status || 'free',
-    packType: profile.pack_type || 'none',
+    packStatus,
+    packType,
+    packDisplayName: getPackDisplayName(packStatus, packType),
+    packStatusLabel: getPackStatusLabel(packStatus),
+    packTypeLabel: getPackTypeLabel(packType, packStatus),
     packStartAt: profile.pack_start_at || null,
     packEndAt: profile.pack_end_at || null,
     createdAt: profile.created_at || null,
@@ -188,11 +233,32 @@ function normalizeSubscription(subscription = {}, userById = new Map()) {
     userId: subscription.user_id,
     userName: user?.name || 'Utilisateur',
     userEmail: user?.email || '',
-    packName: subscription.pack_name || 'none',
+    packName: getPackTypeLabel(subscription.pack_name, ['monthly', 'yearly'].includes(subscription.pack_name) ? 'active' : 'free'),
     status: subscription.status || 'pending',
     startDate: subscription.start_date || null,
     endDate: subscription.end_date || null,
     createdAt: subscription.created_at || null,
+  };
+}
+
+function normalizePayment(payment = {}, userById = new Map()) {
+  const user = userById.get(payment.user_id);
+  const packType = normalizePackType(payment.pack_type || String(payment.proof_url || '').replace(/^pack:/, ''));
+
+  return {
+    id: payment.id,
+    userId: payment.user_id,
+    userName: user?.name || 'Utilisateur',
+    userEmail: user?.email || '',
+    provider: payment.provider || payment.method || 'manual',
+    providerPaymentId: payment.provider_payment_id || '',
+    packType,
+    packLabel: getPackTypeLabel(packType, 'active'),
+    amount: payment.amount ?? null,
+    currency: payment.currency || 'MAD',
+    status: payment.status || 'pending',
+    createdAt: payment.created_at || null,
+    updatedAt: payment.updated_at || null,
   };
 }
 

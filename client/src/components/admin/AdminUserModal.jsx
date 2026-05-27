@@ -27,8 +27,8 @@ export default function AdminUserModal({ user, scanCount = 0, actionLoading = ''
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
           <div className="grid gap-3 sm:grid-cols-2">
             <Detail label="Rôle" value={user.role} />
-            <Detail label="Statut pack" value={user.packStatus} />
-            <Detail label="Type pack" value={user.packType} />
+            <Detail label="Statut pack" value={user.packStatusLabel} />
+            <Detail label="Type pack" value={user.packDisplayName} />
             <Detail label="Fin du pack" value={formatDate(user.packEndAt)} />
             <Detail label="Scans" value={scanCount} />
             <Detail label="Inscription" value={formatDate(user.createdAt)} />

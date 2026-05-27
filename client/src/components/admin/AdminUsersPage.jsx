@@ -62,10 +62,10 @@ export default function AdminUsersPage({ users, analyses, actionLoading, onActio
                   <td className="px-5 py-4 font-bold text-[#1d252b]">{user.name}</td>
                   <td className="px-5 py-4 text-slate-600">{user.email}</td>
                   <td className="px-5 py-4"><Badge>{user.role}</Badge></td>
-                  <td className="px-5 py-4 text-slate-700">{user.packType}</td>
+                  <td className="px-5 py-4 text-slate-700">{user.packDisplayName}</td>
                   <td className="px-5 py-4 text-slate-600">{formatDate(user.packEndAt)}</td>
                   <td className="px-5 py-4 text-slate-600">{formatDate(user.createdAt)}</td>
-                  <td className="px-5 py-4"><Badge tone={user.packStatus === 'blocked' ? 'red' : 'green'}>{user.packStatus}</Badge></td>
+                  <td className="px-5 py-4"><Badge tone={user.packStatus === 'blocked' ? 'red' : 'green'}>{user.packStatusLabel}</Badge></td>
                   <td className="px-5 py-4">
                     <button type="button" onClick={() => setSelectedUser(user)} className="rounded-2xl bg-[#008f45] px-4 py-2 text-sm font-black text-white hover:bg-[#004b3a]">
                       Gérer

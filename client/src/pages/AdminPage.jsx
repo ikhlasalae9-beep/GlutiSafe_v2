@@ -9,7 +9,7 @@ import AdminScanStatsPage from '../components/admin/AdminScanStatsPage.jsx';
 import AdminSettingsPage from '../components/admin/AdminSettingsPage.jsx';
 import AdminUsersPage from '../components/admin/AdminUsersPage.jsx';
 import { signOut } from '../lib/auth.js';
-import { deleteAdminUser, fetchAdminDashboard, runAdminUserAction } from '../lib/adminStats.js';
+import { deleteAdminUser, fetchAdminDashboard, runAdminPaymentAction, runAdminUserAction } from '../lib/adminStats.js';
 
 export default function AdminPage() {
   const navigate = useNavigate();
@@ -75,6 +75,20 @@ export default function AdminPage() {
     }
   }
 
+  async function handlePaymentAction(payment, action) {
+    setActionLoading(`${payment.id}:${action}`);
+    setError('');
+
+    try {
+      await runAdminPaymentAction(payment.id, action);
+      await loadDashboard();
+    } catch (paymentError) {
+      setError(paymentError.message || 'Action paiement impossible.');
+    } finally {
+      setActionLoading('');
+    }
+  }
+
   const content = useMemo(() => {
     if (loading) return <LoadingState />;
     if (!dashboard) return null;
@@ -89,7 +103,16 @@ export default function AdminPage() {
       case 'ai-usage':
         return <AdminAiUsagePage aiUsage={dashboard.aiUsage} />;
       case 'packs':
-        return <AdminPacksPage users={dashboard.users} subscriptions={dashboard.subscriptions} actionLoading={actionLoading} onAction={handleUserAction} />;
+        return (
+          <AdminPacksPage
+            users={dashboard.users}
+            subscriptions={dashboard.subscriptions}
+            payments={dashboard.payments}
+            actionLoading={actionLoading}
+            onAction={handleUserAction}
+            onPaymentAction={handlePaymentAction}
+          />
+        );
       case 'settings':
         return <AdminSettingsPage dashboard={dashboard} />;
       case 'overview':

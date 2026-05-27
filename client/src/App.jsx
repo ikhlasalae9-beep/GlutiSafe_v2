@@ -9,6 +9,7 @@ import AuthCallback from './pages/AuthCallback.jsx';
 import AuthPage from './pages/AuthPage.jsx';
 import HistoryPage from './pages/HistoryPage.jsx';
 import HomePage from './pages/HomePage.jsx';
+import PacksPage from './pages/PacksPage.jsx';
 import ProfilePage from './pages/ProfilePage.jsx';
 
 export default function App() {
@@ -23,6 +24,7 @@ export default function App() {
           <Route path="/analyse" element={<AnalysisPage />} />
           <Route path="/analyser" element={<Navigate to="/analyse" replace />} />
           <Route path="/history" element={<HistoryPage />} />
+          <Route path="/packs" element={<PacksPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           </Route>
         </Route>
@@ -30,6 +32,7 @@ export default function App() {
           <Route path="/admin" element={<AdminPage />} />
         </Route>
         <Route path="/register" element={<AuthPage mode="register" />} />
+        <Route path="/signup" element={<AuthPage mode="register" />} />
         <Route path="/login" element={<AuthPage mode="login" />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/admin-secure" element={<AdminLoginPage />} />

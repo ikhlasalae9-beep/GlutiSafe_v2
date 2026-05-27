@@ -1,4 +1,4 @@
-import { History, Home, LogOut, Menu, ScanLine, UserRound, X } from 'lucide-react';
+import { History, Home, LogOut, Menu, ScanLine, UserRound, WalletCards, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { getCurrentUser, signOut } from '../lib/auth.js';
@@ -7,6 +7,7 @@ const navItems = [
   { label: 'Accueil', path: '/', icon: Home },
   { label: 'Analyser', path: '/analyse', icon: ScanLine },
   { label: 'Historique', path: '/history', icon: History },
+  { label: 'Packs', path: '/packs', icon: WalletCards },
   { label: 'Profil', path: '/profile', icon: UserRound },
 ];
 
@@ -125,6 +126,7 @@ function LandingHeader({ menuOpen, setMenuOpen }) {
     ['Accueil', '#accueil'],
     ['Comment ça marche', '#comment-ca-marche'],
     ['Fonctionnalités', '#fonctionnalites'],
+    ['Packs', '#packs'],
     ['Questions', '#questions'],
     ['Scanner', '#scanner'],
   ];

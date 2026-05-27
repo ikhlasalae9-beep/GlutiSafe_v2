@@ -113,6 +113,64 @@ export async function makeUserAdmin({ requesterToken, userId }) {
   return { profile };
 }
 
+export async function confirmPayment({ requesterToken, paymentId }) {
+  const config = requireSupabaseConfig();
+  const admin = await requireAdmin(config, requesterToken);
+  const payment = await readPayment(config, paymentId);
+
+  if (!payment) {
+    const error = new Error('Paiement introuvable.');
+    error.status = 404;
+    throw error;
+  }
+
+  const packType = normalizePaymentPackType(payment);
+  if (!packType) {
+    const error = new Error('Type de pack manquant pour ce paiement.');
+    error.status = 400;
+    throw error;
+  }
+
+  await updatePayment(config, paymentId, { status: 'confirmed' });
+
+  const now = new Date();
+  const end = new Date(now);
+  if (packType === 'yearly') {
+    end.setFullYear(end.getFullYear() + 1);
+  } else {
+    end.setMonth(end.getMonth() + 1);
+  }
+
+  const profile = await updateProfile(config, payment.user_id, {
+    pack_status: 'active',
+    pack_type: packType,
+    pack_start_at: now.toISOString(),
+    pack_end_at: end.toISOString(),
+  });
+
+  await supabaseRequest(config, 'subscriptions', {
+    method: 'POST',
+    headers: { Prefer: 'return=minimal' },
+    body: {
+      user_id: payment.user_id,
+      pack_name: packType,
+      status: 'active',
+      start_date: now.toISOString(),
+      end_date: end.toISOString(),
+      activated_by: admin.id,
+    },
+  });
+
+  return { confirmed: true, profile };
+}
+
+export async function rejectPayment({ requesterToken, paymentId }) {
+  const config = requireSupabaseConfig();
+  await requireAdmin(config, requesterToken);
+  const payment = await updatePayment(config, paymentId, { status: 'rejected' });
+  return { rejected: true, payment };
+}
+
 export async function deleteUserAccount({ requesterToken, userId, deleteAnalyses = false }) {
   const config = requireSupabaseConfig();
   await requireAdmin(config, requesterToken);
@@ -241,6 +299,42 @@ async function updateProfile(config, userId, body) {
   });
 
   return Array.isArray(rows) ? rows[0] : null;
+}
+
+async function readPayment(config, paymentId) {
+  const rows = await supabaseRequest(config, 'payments', {
+    method: 'GET',
+    query: {
+      select: '*',
+      id: `eq.${paymentId}`,
+      limit: '1',
+    },
+  });
+
+  return Array.isArray(rows) ? rows[0] : null;
+}
+
+async function updatePayment(config, paymentId, body) {
+  const rows = await supabaseRequest(config, 'payments', {
+    method: 'PATCH',
+    query: {
+      id: `eq.${paymentId}`,
+      select: '*',
+    },
+    headers: { Prefer: 'return=representation' },
+    body,
+  });
+
+  return Array.isArray(rows) ? rows[0] : null;
+}
+
+function normalizePaymentPackType(payment) {
+  const direct = cleanText(payment?.pack_type);
+  if (direct === 'monthly' || direct === 'yearly') return direct;
+
+  const legacy = cleanText(payment?.proof_url).replace(/^pack:/, '');
+  if (legacy === 'monthly' || legacy === 'yearly') return legacy;
+  return '';
 }
 
 async function readSupabaseCount(config, table) {

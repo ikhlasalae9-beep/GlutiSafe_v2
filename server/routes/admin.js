@@ -1,12 +1,46 @@
 import { Router } from 'express';
-import { activateUserPack, blockUser, deleteUserAccount, expireUserPack, makeUserAdmin, readAdminStats, unblockUser } from '../lib/adminStats.js';
+import {
+  activateUserPack,
+  blockUser,
+  confirmPayment,
+  deleteUserAccount,
+  expireUserPack,
+  makeUserAdmin,
+  readAdminStats,
+  rejectPayment,
+  unblockUser,
+} from '../lib/adminStats.js';
 
 const router = Router();
 
-router.get('/admin/stats', async (_req, res) => {
+router.get('/admin/stats', async (req, res) => {
   try {
     const stats = await readAdminStats({ requesterToken: readBearerToken(req) });
     res.json(stats);
+  } catch (error) {
+    sendAdminError(res, error);
+  }
+});
+
+router.post('/admin/payments/:id/confirm', async (req, res) => {
+  try {
+    const result = await confirmPayment({
+      requesterToken: readBearerToken(req),
+      paymentId: req.params.id,
+    });
+    res.json(result);
+  } catch (error) {
+    sendAdminError(res, error);
+  }
+});
+
+router.post('/admin/payments/:id/reject', async (req, res) => {
+  try {
+    const result = await rejectPayment({
+      requesterToken: readBearerToken(req),
+      paymentId: req.params.id,
+    });
+    res.json(result);
   } catch (error) {
     sendAdminError(res, error);
   }

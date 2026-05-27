@@ -1,6 +1,8 @@
-import { ArrowRight, ChevronDown, ScanLine } from 'lucide-react';
+import { ArrowRight, Check, ChevronDown, ScanLine } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { getCurrentUser } from '../lib/auth.js';
+import { PACKS } from '../lib/packs.js';
 
 const asset = (path) => `/assets/landing/${path}`;
 
@@ -139,6 +141,8 @@ const faqs = [
 ];
 
 export default function HomePage() {
+  const [user, setUser] = useState(null);
+
   useEffect(() => {
     const scrollToHash = () => {
       const id = window.location.hash.slice(1);
@@ -154,6 +158,17 @@ export default function HomePage() {
     return () => window.removeEventListener('hashchange', scrollToHash);
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    getCurrentUser().then((currentUser) => {
+      if (active) setUser(currentUser);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <div className="landing-page">
       <HeroSection />
@@ -161,10 +176,66 @@ export default function HomePage() {
       <HowItWorksSection />
       <FeaturesSection />
       <PreviewSection />
+      <PricingSection user={user} />
       <FaqSection />
       <FinalCtaSection />
       <LandingFooter />
     </div>
+  );
+}
+
+function PricingSection({ user }) {
+  return (
+    <section id="packs" className="landing-section page-shell" aria-labelledby="pricing-title">
+      <div className="section-heading">
+        <p className="landing-kicker">Packs</p>
+        <h2 id="pricing-title">Choisissez le pack adapté à vos besoins</h2>
+        <p>Commencez gratuitement, puis passez à un pack premium quand vous avez besoin de plus d’analyses.</p>
+      </div>
+
+      <div className="mt-10 grid gap-5 lg:grid-cols-3">
+        {PACKS.map((pack) => {
+          const target = pack.id === 'free' ? (user ? '/analyse' : '/signup') : '/packs';
+
+          return (
+            <article
+              key={pack.id}
+              className={`relative flex min-h-[390px] flex-col rounded-[1.5rem] border bg-white p-6 shadow-[0_24px_70px_rgba(29,37,43,0.08)] ${
+                pack.highlighted ? 'border-[#008f45] ring-4 ring-[#a8cfa5]/25' : 'border-[#dfe8df]'
+              }`}
+            >
+              {pack.highlighted ? (
+                <span className="absolute right-5 top-5 rounded-full bg-[#008f45] px-3 py-1 text-xs font-black text-white">
+                  Meilleur choix
+                </span>
+              ) : null}
+              <p className="text-sm font-black uppercase tracking-[0.12em] text-[#008f45]">{pack.badge}</p>
+              <h3 className="mt-3 text-2xl font-extrabold text-[#1d252b]">{pack.title}</h3>
+              <p className="mt-5 text-4xl font-black text-[#1d252b]">
+                {pack.price}
+                {pack.cadence ? <span className="text-base font-bold text-slate-500"> {pack.cadence}</span> : null}
+              </p>
+              <ul className="mt-6 grid gap-3 text-sm font-semibold text-slate-700">
+                {pack.features.map((feature) => (
+                  <li key={feature} className="flex items-start gap-2">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#008f45]" aria-hidden="true" />
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link
+                to={target}
+                className={`mt-auto inline-flex items-center justify-center rounded-2xl px-5 py-3 text-sm font-black transition ${
+                  pack.highlighted ? 'bg-[#008f45] text-white hover:bg-[#004b3a]' : 'border border-[#dfe8df] bg-[#f7f8f6] text-[#1d252b] hover:border-[#008f45] hover:text-[#008f45]'
+                }`}
+              >
+                {pack.cta}
+              </Link>
+            </article>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 

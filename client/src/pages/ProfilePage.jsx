@@ -1,4 +1,4 @@
-import { Bell, Mail, Save, ShieldCheck, SlidersHorizontal, UserRound } from 'lucide-react';
+import { Bell, Mail, Save, ShieldCheck, SlidersHorizontal, UserRound, WalletCards } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../components/Button.jsx';
@@ -60,6 +60,11 @@ export default function ProfilePage() {
               <Metric label="OK" value={history.filter(isSafeHistoryItem).length} />
               <Metric label="Alertes" value={history.filter(isAlertHistoryItem).length} />
             </div>
+            <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.12em] text-emerald-700">Pack actuel</p>
+              <p className="mt-1 text-lg font-black text-[#1d252b]">{user.packDisplayName || 'Pack Free'}</p>
+              <p className="mt-1 text-xs font-bold text-slate-600">{user.packStatusLabel || 'Gratuit'}</p>
+            </div>
           </div>
         </section>
 
@@ -79,6 +84,14 @@ export default function ProfilePage() {
                   <span className="font-semibold text-slate-700">{item}</span>
                 </label>
               ))}
+            </div>
+          </Panel>
+
+          <Panel icon={WalletCards} title="Pack et abonnement">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Field label="Pack" value={user.packDisplayName || 'Pack Free'} />
+              <Field label="Statut" value={user.packStatusLabel || 'Gratuit'} />
+              <Field label="Fin du pack" value={formatDate(user.packEndAt)} />
             </div>
           </Panel>
 
@@ -146,4 +159,10 @@ function Metric({ label, value }) {
       <p className="mt-1 text-xs font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p>
     </div>
   );
+}
+
+function formatDate(value) {
+  if (!value) return '-';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString('fr-FR');
 }

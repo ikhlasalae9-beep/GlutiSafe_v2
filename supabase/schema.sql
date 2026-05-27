@@ -23,6 +23,10 @@ create table if not exists public.profiles (
   updated_at timestamptz default now()
 );
 
+alter table public.profiles
+  alter column pack_status set default 'free',
+  alter column pack_type set default 'none';
+
 create table if not exists public.analyses (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users(id) on delete set null,
@@ -53,13 +57,41 @@ create table if not exists public.subscriptions (
 create table if not exists public.payments (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users(id) on delete cascade,
+  provider text default 'manual' check (provider in ('paypal','cmi','manual')),
+  provider_payment_id text,
+  pack_type text check (pack_type in ('monthly','yearly')),
   amount numeric,
+  currency text default 'MAD',
   method text,
-  status text default 'pending' check (status in ('pending','confirmed','rejected')),
+  status text default 'pending' check (status in ('created','pending','captured','confirmed','failed','rejected')),
   proof_url text,
+  raw_payload jsonb default '{}'::jsonb,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
+
+alter table public.payments
+  add column if not exists provider text default 'manual',
+  add column if not exists provider_payment_id text,
+  add column if not exists pack_type text,
+  add column if not exists currency text default 'MAD',
+  add column if not exists raw_payload jsonb default '{}'::jsonb;
+
+alter table public.payments drop constraint if exists payments_provider_check;
+alter table public.payments add constraint payments_provider_check check (provider in ('paypal','cmi','manual'));
+alter table public.payments drop constraint if exists payments_pack_type_check;
+alter table public.payments add constraint payments_pack_type_check check (pack_type is null or pack_type in ('monthly','yearly'));
+alter table public.payments drop constraint if exists payments_status_check;
+alter table public.payments add constraint payments_status_check check (status in ('created','pending','captured','confirmed','failed','rejected'));
+
+update public.profiles
+set
+  pack_status = coalesce(nullif(pack_status, ''), 'free'),
+  pack_type = coalesce(nullif(pack_type, ''), 'none')
+where pack_status is null
+   or pack_status = ''
+   or pack_type is null
+   or pack_type = '';
 
 drop trigger if exists set_profiles_updated_at on public.profiles;
 create trigger set_profiles_updated_at
@@ -98,12 +130,16 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, email, full_name, role)
+  insert into public.profiles (id, email, full_name, role, pack_status, pack_type, pack_start_at, pack_end_at)
   values (
     new.id,
     new.email,
     coalesce(new.raw_user_meta_data ->> 'full_name', new.raw_user_meta_data ->> 'name'),
-    'user'
+    'user',
+    'free',
+    'none',
+    null,
+    null
   )
   on conflict (id) do nothing;
   return new;

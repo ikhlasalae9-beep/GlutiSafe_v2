@@ -1,4 +1,5 @@
 import { requireSupabaseClient, supabase } from './supabaseClient.js';
+import { getPackDisplayName, getPackStatusLabel, getPackTypeLabel, normalizePackStatus, normalizePackType } from './packs.js';
 
 export async function registerUser({ name, email, password }) {
   const client = requireSupabaseClient();
@@ -111,7 +112,7 @@ export async function getRegisteredUsers() {
 
   const { data, error } = await requireSupabaseClient()
     .from('profiles')
-    .select('id, full_name, email, role, created_at')
+    .select('id, full_name, email, role, pack_status, pack_type, pack_start_at, pack_end_at, created_at')
     .order('created_at', { ascending: false });
 
   if (error) throw new Error(cleanSupabaseError(error));
@@ -131,14 +132,20 @@ function toAppUser(user) {
 }
 
 export function normalizeProfile(profile = {}) {
+  const packStatus = normalizePackStatus(profile.pack_status);
+  const packType = normalizePackType(profile.pack_type);
+
   return {
     id: profile.id,
     name: profile.full_name || profile.email?.split('@')[0] || 'Utilisateur',
     fullName: profile.full_name || '',
     email: normalizeEmail(profile.email),
     role: profile.role || 'user',
-    packStatus: profile.pack_status || 'free',
-    packType: profile.pack_type || 'none',
+    packStatus,
+    packType,
+    packDisplayName: getPackDisplayName(packStatus, packType),
+    packStatusLabel: getPackStatusLabel(packStatus),
+    packTypeLabel: getPackTypeLabel(packType, packStatus),
     packStartAt: profile.pack_start_at || null,
     packEndAt: profile.pack_end_at || null,
     createdAt: profile.created_at || null,

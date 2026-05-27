@@ -99,6 +99,20 @@ add column if not exists image_path text;
 
 Create a private Supabase Storage bucket named `analysis-images`. The app uploads product photos there and stores only the storage path in `public.analyses.image_path`.
 
+For packs and future payments, run `supabase/packs_payments_schema.sql` on existing Supabase projects. It ensures every profile defaults to the Free Pack and adds payment fields for PayPal, CMI, and manual requests:
+
+```sql
+provider: paypal | cmi | manual
+provider_payment_id
+pack_type: monthly | yearly
+amount
+currency
+status: created | pending | captured | confirmed | failed | rejected
+raw_payload
+```
+
+New profiles are created with `role='user'`, `pack_status='free'`, `pack_type='none'`, and no pack dates. Existing null or empty pack values are normalized to Free Pack by the migration.
+
 In Supabase Dashboard -> Authentication -> URL Configuration:
 
 - Site URL: `https://gluti-safe-v2.vercel.app`
@@ -154,6 +168,8 @@ Production:
 - Login works with Supabase Auth.
 - Admin dashboard shows the real profile count and analysis count.
 - New scans are inserted into `analyses`.
+- Free Pack is shown for new users and users with empty pack values.
+- `/packs` creates manual pending payment/subscription requests without activating paid packs.
 - Pack activation updates `profiles` and inserts `subscriptions`.
 - No `.env` file is committed.
 - `SUPABASE_SERVICE_ROLE_KEY` is not present in the frontend bundle.
