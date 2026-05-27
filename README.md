@@ -6,7 +6,7 @@ GlutiSafe is a React, Node, and Python app for extracting visible ingredient tex
 
 - `client/`: React + Vite frontend on `http://localhost:5173`
 - `server/`: Node/Express analysis backend on `http://localhost:5000` for local development
-- `client/api/`: Vercel serverless API functions for production deployment
+- `client/api/index.js`: single consolidated Vercel serverless API function for production deployment
 - `ocr-service/`: Python FastAPI EasyOCR service on `http://localhost:8000`
 
 Image flow:
@@ -122,7 +122,9 @@ In Supabase Dashboard -> Authentication -> URL Configuration:
 
 ## Vercel Deployment
 
-Deploy the `client/` directory on Vercel. The production API functions live in `client/api/`, so the frontend can call same-origin paths such as `/api/chatbot/message` when `VITE_API_URL` is empty.
+Deploy the `client/` directory on Vercel. The production API is consolidated into `client/api/index.js`, so the frontend can call same-origin paths such as `/api/chatbot/message` when `VITE_API_URL` is empty.
+
+Important for Vercel Hobby: the `client/api` directory must contain only `index.js`. Every additional file inside `client/api` can become another Serverless Function and may exceed the Hobby plan limit. Shared API logic must live outside `client/api`, currently in `client/src/server/`.
 
 In Vercel Project Settings, add these environment variables:
 
@@ -159,11 +161,13 @@ Local:
 npm install
 cd client && npm install && npm run dev
 cd ../server && npm install && npm run dev
+npm run build
 ```
 
 Production:
 
 - Vercel build passes.
+- Vercel creates one Serverless Function from `client/api/index.js`.
 - Signup creates an auth user and a `profiles` row.
 - Login works with Supabase Auth.
 - Admin dashboard shows the real profile count and analysis count.
@@ -210,6 +214,12 @@ OCR_LANGS=ch_sim,en
 - `POST /api/admin/users/:id/expire-pack`
 - `POST /api/admin/users/:id/block`
 - `POST /api/admin/users/:id/make-admin`
+- `POST /api/admin/delete-user`
+- `POST /api/admin/payments/:id/confirm`
+- `POST /api/admin/payments/:id/reject`
+- `POST /api/paypal/create-order` placeholder for future PayPal integration
+- `POST /api/paypal/capture-order` placeholder for future PayPal integration
+- `POST /api/paypal/webhook` placeholder for future PayPal integration
 - `GET http://localhost:8000/health` for the optional local EasyOCR service
 - `GET http://localhost:8000/ocr/status` for the optional local EasyOCR service
 - `POST http://localhost:8000/ocr/extract` for the optional local EasyOCR service
