@@ -41,6 +41,12 @@ export const PACKS = [
   },
 ];
 
+export const PACK_LIMITS = {
+  free: { scans: 5, period: 'month', history: 3, premium: false },
+  monthly: { scans: 100, period: 'month', history: Infinity, premium: true },
+  yearly: { scans: 1500, period: 'year', history: Infinity, premium: true },
+};
+
 export const PAYMENT_METHODS = [
   { id: 'paypal', label: 'Payer avec PayPal' },
   { id: 'cmi', label: 'Payer par carte bancaire CMI' },
@@ -63,7 +69,7 @@ export function getPackByType(packType) {
 }
 
 export function getCurrentPack(profile = {}) {
-  const status = normalizePackStatus(profile.packStatus || profile.pack_status);
+  const status = getEffectivePackStatus(profile);
   const type = normalizePackType(profile.packType || profile.pack_type);
 
   if (status === 'active' && type !== 'none') return getPackByType(type);
@@ -102,4 +108,62 @@ export function getPackTypeLabel(packType, packStatus = 'free') {
 
 export function getPackAmountDh(packType) {
   return packType === 'yearly' ? 249 : packType === 'monthly' ? 29 : 0;
+}
+
+export function getEffectivePackStatus(profile = {}) {
+  const status = normalizePackStatus(profile.packStatus || profile.pack_status);
+  const endAt = profile.packEndAt || profile.pack_end_at;
+
+  if (status === 'active' && endAt) {
+    const end = new Date(endAt);
+    if (!Number.isNaN(end.getTime()) && end.getTime() < Date.now()) return 'expired';
+  }
+
+  return status;
+}
+
+export function getPackLimit(profile = {}) {
+  const status = getEffectivePackStatus(profile);
+  const type = normalizePackType(profile.packType || profile.pack_type);
+
+  if (status === 'blocked') return { blocked: true, message: 'Votre compte est bloqué. Contactez l’administration.' };
+  if (status !== 'active') return PACK_LIMITS.free;
+  return PACK_LIMITS[type] || PACK_LIMITS.free;
+}
+
+export function getPackPeriodStart(profile = {}, now = new Date()) {
+  const status = getEffectivePackStatus(profile);
+  const type = normalizePackType(profile.packType || profile.pack_type);
+  const startAt = profile.packStartAt || profile.pack_start_at;
+
+  if (status === 'active' && startAt) {
+    const start = new Date(startAt);
+    if (!Number.isNaN(start.getTime())) return start.toISOString();
+  }
+
+  if (status === 'active' && type === 'yearly') {
+    return new Date(Date.UTC(now.getUTCFullYear(), 0, 1)).toISOString();
+  }
+
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+}
+
+export function describeCurrentPack(profile = {}) {
+  const status = getEffectivePackStatus(profile);
+  const type = normalizePackType(profile.packType || profile.pack_type);
+  const endAt = profile.packEndAt || profile.pack_end_at;
+  const endLabel = formatDate(endAt);
+
+  if (status === 'blocked') return 'Compte bloqué';
+  if (status === 'pending') return 'Demande en attente';
+  if (status === 'expired') return 'Pack expiré';
+  if (status === 'active' && type === 'monthly') return `Pack Mensuel actif jusqu’au ${endLabel}`;
+  if (status === 'active' && type === 'yearly') return `Pack Annuel actif jusqu’au ${endLabel}`;
+  return 'Pack Gratuit';
+}
+
+function formatDate(value) {
+  if (!value) return '-';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString('fr-FR');
 }

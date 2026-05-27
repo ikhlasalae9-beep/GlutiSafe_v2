@@ -113,6 +113,14 @@ raw_payload
 
 New profiles are created with `role='user'`, `pack_status='free'`, `pack_type='none'`, and no pack dates. Existing null or empty pack values are normalized to Free Pack by the migration.
 
+If you only need the profile pack defaults on an existing database, run `supabase/packs_update.sql`. Pack rules enforced by the app:
+
+- Free: 5 scans per month and last 3 history items.
+- Monthly: 100 scans per month for 30 days.
+- Yearly: 1500 scans per year for 365 days.
+- Blocked users cannot run analyses.
+- PayPal and CMI are placeholders until real gateway credentials and webhooks are added.
+
 In Supabase Dashboard -> Authentication -> URL Configuration:
 
 - Site URL: `https://gluti-safe-v2.vercel.app`

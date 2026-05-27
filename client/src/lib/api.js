@@ -1,14 +1,20 @@
 import { API_URL } from '../config/api.js';
+import { supabase } from './supabaseClient.js';
 
 async function request(path, body) {
+  const token = await getAccessToken();
   const response = await fetch(`${API_URL}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify(body),
   });
 
   if (!response.ok) {
-    throw new Error('Le serveur GlutiSafe ne répond pas correctement.');
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.message || 'Le serveur GlutiSafe ne répond pas correctement.');
   }
 
   return response.json();
@@ -24,6 +30,12 @@ export function explainAnalysis(payload) {
 
 export function fullAnalysis(text) {
   return request('/api/full-analysis', { text });
+}
+
+async function getAccessToken() {
+  if (!supabase) return '';
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token || '';
 }
 
 export function sendChatbotMessage({ message, context }) {

@@ -1,6 +1,5 @@
 const SUPABASE_REST_PATH = '/rest/v1';
-const STORAGE_WARNING =
-  'Base de données non configurée. Ajoutez SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY dans Vercel.';
+const STORAGE_WARNING = 'Base de donnees non configuree. Ajoutez SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY dans Vercel.';
 
 export async function readAdminStats({ requesterToken } = {}) {
   const config = getSupabaseConfig();
@@ -9,7 +8,7 @@ export async function readAdminStats({ requesterToken } = {}) {
     return {
       usersCount: 0,
       scansCount: 0,
-      platformStatus: 'Base de données non configurée',
+      platformStatus: 'Base de donnees non configuree',
       mainAdmin: 'Admin',
       storageWarning: STORAGE_WARNING,
     };
@@ -23,26 +22,97 @@ export async function readAdminStats({ requesterToken } = {}) {
     readMainAdmin(config),
   ]);
 
-  return {
-    usersCount,
-    scansCount,
-    platformStatus: 'Active',
-    mainAdmin,
-  };
+  return { usersCount, scansCount, platformStatus: 'Active', mainAdmin };
+}
+
+export async function createManualPackRequest({ requesterToken, packType }) {
+  const config = requireSupabaseConfig();
+  const user = await requireAuthenticatedUser(config, requesterToken);
+  const normalizedPackType = normalizePackType(packType);
+
+  if (!normalizedPackType) {
+    const error = new Error('Pack invalide.');
+    error.status = 400;
+    throw error;
+  }
+
+  await rejectPendingSubscriptions(config, user.id);
+
+  const nowIso = new Date().toISOString();
+  const paymentRows = await supabaseRequest(config, 'payments', {
+    method: 'POST',
+    query: { select: '*' },
+    headers: { Prefer: 'return=representation' },
+    body: {
+      user_id: user.id,
+      provider: 'manual',
+      method: 'manual',
+      pack_type: normalizedPackType,
+      amount: packAmount(normalizedPackType),
+      currency: 'MAD',
+      status: 'pending',
+      raw_payload: { source: 'packs_page', requested_at: nowIso },
+    },
+  });
+
+  await supabaseRequest(config, 'subscriptions', {
+    method: 'POST',
+    headers: { Prefer: 'return=minimal' },
+    body: {
+      user_id: user.id,
+      pack_name: normalizedPackType,
+      status: 'pending',
+      start_date: null,
+      end_date: null,
+    },
+  });
+
+  await updateProfile(config, user.id, {
+    pack_status: 'pending',
+    pack_type: normalizedPackType,
+    pack_start_at: null,
+    pack_end_at: null,
+  });
+
+  return { status: 'pending', payment: Array.isArray(paymentRows) ? paymentRows[0] : paymentRows };
+}
+
+export async function assertCanUserAnalyze({ requesterToken }) {
+  const config = requireSupabaseConfig();
+  const user = await requireAuthenticatedUser(config, requesterToken);
+  const profile = await readProfile(config, user.id);
+
+  if (!profile) {
+    const error = new Error('Profil introuvable.');
+    error.status = 404;
+    throw error;
+  }
+
+  const effective = effectivePack(profile);
+  if (effective.status === 'blocked') {
+    const error = new Error('Votre compte est bloqué. Contactez l’administration.');
+    error.status = 403;
+    throw error;
+  }
+
+  const limit = scanLimit(effective);
+  const count = await countUserAnalyses(config, user.id, periodStart(effective));
+
+  if (count >= limit) {
+    const error = new Error(limitMessage(effective, limit));
+    error.status = 429;
+    throw error;
+  }
+
+  return { allowed: true, used: count, remaining: limit - count, limit };
 }
 
 export async function activateUserPack({ requesterToken, userId, packType }) {
   const config = requireSupabaseConfig();
   const admin = await requireAdmin(config, requesterToken);
-  const normalizedPackType = packType === 'yearly' ? 'yearly' : 'monthly';
+  const normalizedPackType = normalizePackType(packType) || 'monthly';
   const now = new Date();
-  const end = new Date(now);
-
-  if (normalizedPackType === 'yearly') {
-    end.setFullYear(end.getFullYear() + 1);
-  } else {
-    end.setMonth(end.getMonth() + 1);
-  }
+  const end = addPackDuration(now, normalizedPackType);
 
   const profile = await updateProfile(config, userId, {
     pack_status: 'active',
@@ -70,10 +140,18 @@ export async function activateUserPack({ requesterToken, userId, packType }) {
 export async function expireUserPack({ requesterToken, userId }) {
   const config = requireSupabaseConfig();
   await requireAdmin(config, requesterToken);
+  const nowIso = new Date().toISOString();
+
   const profile = await updateProfile(config, userId, {
     pack_status: 'expired',
     pack_type: 'none',
-    pack_end_at: new Date().toISOString(),
+    pack_end_at: nowIso,
+  });
+
+  await updateSubscriptions(config, {
+    userId,
+    fromStatus: 'active',
+    body: { status: 'expired', end_date: nowIso },
   });
 
   return { profile };
@@ -82,23 +160,23 @@ export async function expireUserPack({ requesterToken, userId }) {
 export async function blockUser({ requesterToken, userId }) {
   const config = requireSupabaseConfig();
   await requireAdmin(config, requesterToken);
-  const profile = await updateProfile(config, userId, {
-    pack_status: 'blocked',
-    pack_type: 'none',
-  });
-
+  const profile = await updateProfile(config, userId, { pack_status: 'blocked', pack_type: 'none' });
   return { profile };
 }
 
 export async function unblockUser({ requesterToken, userId }) {
   const config = requireSupabaseConfig();
   await requireAdmin(config, requesterToken);
-  const profile = await updateProfile(config, userId, {
-    pack_status: 'free',
-    pack_type: 'none',
-    pack_start_at: null,
-    pack_end_at: null,
-  });
+
+  const hasActive = await userHasActivePack(config, userId);
+  const profile = hasActive
+    ? await readProfile(config, userId)
+    : await updateProfile(config, userId, {
+        pack_status: 'free',
+        pack_type: 'none',
+        pack_start_at: null,
+        pack_end_at: null,
+      });
 
   return { profile };
 }
@@ -106,10 +184,7 @@ export async function unblockUser({ requesterToken, userId }) {
 export async function makeUserAdmin({ requesterToken, userId }) {
   const config = requireSupabaseConfig();
   await requireAdmin(config, requesterToken);
-  const profile = await updateProfile(config, userId, {
-    role: 'admin',
-  });
-
+  const profile = await updateProfile(config, userId, { role: 'admin' });
   return { profile };
 }
 
@@ -131,15 +206,10 @@ export async function confirmPayment({ requesterToken, paymentId }) {
     throw error;
   }
 
-  await updatePayment(config, paymentId, { status: 'confirmed' });
-
   const now = new Date();
-  const end = new Date(now);
-  if (packType === 'yearly') {
-    end.setFullYear(end.getFullYear() + 1);
-  } else {
-    end.setMonth(end.getMonth() + 1);
-  }
+  const end = addPackDuration(now, packType);
+
+  await updatePayment(config, paymentId, { status: 'confirmed' });
 
   const profile = await updateProfile(config, payment.user_id, {
     pack_status: 'active',
@@ -148,12 +218,11 @@ export async function confirmPayment({ requesterToken, paymentId }) {
     pack_end_at: end.toISOString(),
   });
 
-  await supabaseRequest(config, 'subscriptions', {
-    method: 'POST',
-    headers: { Prefer: 'return=minimal' },
+  const updated = await updateSubscriptions(config, {
+    userId: payment.user_id,
+    packName: packType,
+    fromStatus: 'pending',
     body: {
-      user_id: payment.user_id,
-      pack_name: packType,
       status: 'active',
       start_date: now.toISOString(),
       end_date: end.toISOString(),
@@ -161,13 +230,53 @@ export async function confirmPayment({ requesterToken, paymentId }) {
     },
   });
 
+  if (!updated) {
+    await supabaseRequest(config, 'subscriptions', {
+      method: 'POST',
+      headers: { Prefer: 'return=minimal' },
+      body: {
+        user_id: payment.user_id,
+        pack_name: packType,
+        status: 'active',
+        start_date: now.toISOString(),
+        end_date: end.toISOString(),
+        activated_by: admin.id,
+      },
+    });
+  }
+
   return { confirmed: true, profile };
 }
 
 export async function rejectPayment({ requesterToken, paymentId }) {
   const config = requireSupabaseConfig();
   await requireAdmin(config, requesterToken);
-  const payment = await updatePayment(config, paymentId, { status: 'rejected' });
+  const payment = await readPayment(config, paymentId);
+
+  if (!payment) {
+    const error = new Error('Paiement introuvable.');
+    error.status = 404;
+    throw error;
+  }
+
+  const packType = normalizePaymentPackType(payment);
+  await updatePayment(config, paymentId, { status: 'rejected' });
+  await updateSubscriptions(config, {
+    userId: payment.user_id,
+    packName: packType || undefined,
+    fromStatus: 'pending',
+    body: { status: 'rejected' },
+  });
+
+  if (!(await userHasActivePack(config, payment.user_id))) {
+    await updateProfile(config, payment.user_id, {
+      pack_status: 'free',
+      pack_type: 'none',
+      pack_start_at: null,
+      pack_end_at: null,
+    });
+  }
+
   return { rejected: true, payment };
 }
 
@@ -191,14 +300,11 @@ export async function deleteUserAccount({ requesterToken, userId, deleteAnalyses
 
   const authResponse = await fetch(`${config.url}/auth/v1/admin/users/${encodeURIComponent(userId)}`, {
     method: 'DELETE',
-    headers: {
-      apikey: config.serviceRoleKey,
-      Authorization: `Bearer ${config.serviceRoleKey}`,
-    },
+    headers: { apikey: config.serviceRoleKey, Authorization: `Bearer ${config.serviceRoleKey}` },
   });
 
   if (!authResponse.ok && authResponse.status !== 404) {
-    const error = new Error('La suppression complète du compte Auth nécessite une action serveur sécurisée.');
+    const error = new Error('La suppression complete du compte Auth necessite une action serveur securisee.');
     error.status = authResponse.status;
     throw error;
   }
@@ -210,7 +316,6 @@ function getSupabaseConfig() {
   const url = cleanText(process.env.SUPABASE_URL);
   const anonKey = cleanText(process.env.SUPABASE_ANON_KEY);
   const serviceRoleKey = cleanText(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY);
-
   if (!url || !serviceRoleKey) return null;
   return { url: url.replace(/\/+$/, ''), anonKey, serviceRoleKey };
 }
@@ -225,15 +330,15 @@ function requireSupabaseConfig() {
   return config;
 }
 
-async function requireAdmin(config, requesterToken) {
+async function requireAuthenticatedUser(config, requesterToken) {
   const cleanToken = cleanText(requesterToken);
   if (!cleanToken) {
-    const error = new Error('Session admin introuvable.');
+    const error = new Error('Session introuvable.');
     error.status = 401;
     throw error;
   }
 
-  const userResponse = await fetch(`${config.url}/auth/v1/user`, {
+  const response = await fetch(`${config.url}/auth/v1/user`, {
     method: 'GET',
     headers: {
       apikey: config.anonKey || config.serviceRoleKey,
@@ -241,35 +346,31 @@ async function requireAdmin(config, requesterToken) {
     },
   });
 
-  if (!userResponse.ok) {
-    const error = new Error('Session admin invalide.');
+  if (!response.ok) {
+    const error = new Error('Session invalide.');
     error.status = 401;
     throw error;
   }
 
-  const authUser = await userResponse.json();
-  const profile = await readProfile(config, authUser.id);
+  return response.json();
+}
 
+async function requireAdmin(config, requesterToken) {
+  const authUser = await requireAuthenticatedUser(config, requesterToken);
+  const profile = await readProfile(config, authUser.id);
   if (profile?.role !== 'admin') {
-    const error = new Error("Accès refusé. Ce compte n'est pas administrateur.");
+    const error = new Error("Acces refuse. Ce compte n'est pas administrateur.");
     error.status = 403;
     throw error;
   }
-
   return profile;
 }
 
 async function readMainAdmin(config) {
   const rows = await supabaseRequest(config, 'profiles', {
     method: 'GET',
-    query: {
-      select: 'full_name,email',
-      role: 'eq.admin',
-      order: 'created_at.asc',
-      limit: '1',
-    },
+    query: { select: 'full_name,email', role: 'eq.admin', order: 'created_at.asc', limit: '1' },
   });
-
   const admin = Array.isArray(rows) ? rows[0] : null;
   return admin?.full_name || admin?.email || 'Admin';
 }
@@ -277,77 +378,88 @@ async function readMainAdmin(config) {
 async function readProfile(config, userId) {
   const rows = await supabaseRequest(config, 'profiles', {
     method: 'GET',
-    query: {
-      select: 'id,role,email,full_name',
-      id: `eq.${userId}`,
-      limit: '1',
-    },
+    query: { select: '*', id: `eq.${userId}`, limit: '1' },
   });
-
   return Array.isArray(rows) ? rows[0] : null;
 }
 
 async function updateProfile(config, userId, body) {
   const rows = await supabaseRequest(config, 'profiles', {
     method: 'PATCH',
-    query: {
-      id: `eq.${userId}`,
-      select: 'id,full_name,email,role,pack_status,pack_type,pack_start_at,pack_end_at',
-    },
+    query: { id: `eq.${userId}`, select: '*' },
     headers: { Prefer: 'return=representation' },
     body,
   });
-
   return Array.isArray(rows) ? rows[0] : null;
 }
 
 async function readPayment(config, paymentId) {
   const rows = await supabaseRequest(config, 'payments', {
     method: 'GET',
-    query: {
-      select: '*',
-      id: `eq.${paymentId}`,
-      limit: '1',
-    },
+    query: { select: '*', id: `eq.${paymentId}`, limit: '1' },
   });
-
   return Array.isArray(rows) ? rows[0] : null;
 }
 
 async function updatePayment(config, paymentId, body) {
   const rows = await supabaseRequest(config, 'payments', {
     method: 'PATCH',
-    query: {
-      id: `eq.${paymentId}`,
-      select: '*',
-    },
+    query: { id: `eq.${paymentId}`, select: '*' },
     headers: { Prefer: 'return=representation' },
     body,
   });
-
   return Array.isArray(rows) ? rows[0] : null;
 }
 
-function normalizePaymentPackType(payment) {
-  const direct = cleanText(payment?.pack_type);
-  if (direct === 'monthly' || direct === 'yearly') return direct;
+async function rejectPendingSubscriptions(config, userId) {
+  await updateSubscriptions(config, {
+    userId,
+    fromStatus: 'pending',
+    body: { status: 'rejected' },
+  });
+}
 
-  const legacy = cleanText(payment?.proof_url).replace(/^pack:/, '');
-  if (legacy === 'monthly' || legacy === 'yearly') return legacy;
-  return '';
+async function updateSubscriptions(config, { userId, packName, fromStatus, body }) {
+  const query = { user_id: `eq.${userId}`, select: 'id' };
+  if (packName) query.pack_name = `eq.${packName}`;
+  if (fromStatus) query.status = `eq.${fromStatus}`;
+
+  const rows = await supabaseRequest(config, 'subscriptions', {
+    method: 'PATCH',
+    query,
+    headers: { Prefer: 'return=representation' },
+    body,
+  });
+  return Array.isArray(rows) ? rows.length : 0;
+}
+
+async function userHasActivePack(config, userId) {
+  const rows = await supabaseRequest(config, 'profiles', {
+    method: 'GET',
+    query: { select: 'id', id: `eq.${userId}`, pack_status: 'eq.active', limit: '1' },
+  });
+  return Array.isArray(rows) && rows.length > 0;
 }
 
 async function readSupabaseCount(config, table) {
   const response = await fetch(buildSupabaseUrl(config, table, { select: 'id' }), {
     method: 'GET',
-    headers: supabaseHeaders(config, {
-      Prefer: 'count=exact',
-      Range: '0-0',
-    }),
+    headers: supabaseHeaders(config, { Prefer: 'count=exact', Range: '0-0' }),
+  });
+  if (!response.ok) throw new Error(`Impossible de lire le compteur ${table}.`);
+  return parseContentRangeCount(response.headers.get('content-range'));
+}
+
+async function countUserAnalyses(config, userId, startIso) {
+  const response = await fetch(buildSupabaseUrl(config, 'analyses', { select: 'id', user_id: `eq.${userId}`, created_at: `gte.${startIso}` }), {
+    method: 'GET',
+    headers: supabaseHeaders(config, { Prefer: 'count=exact', Range: '0-0' }),
   });
 
   if (!response.ok) {
-    throw new Error(`Impossible de lire le compteur ${table}.`);
+    const error = new Error('Impossible de verifier votre limite de scans.');
+    error.status = response.status;
+    throw error;
   }
 
   return parseContentRangeCount(response.headers.get('content-range'));
@@ -361,13 +473,14 @@ async function supabaseRequest(config, table, { method, query = {}, headers = {}
   });
 
   if (!response.ok) {
+    const details = await response.text().catch(() => '');
     const error = new Error(`Supabase request failed for ${table}.`);
     error.status = response.status;
+    error.details = details;
     throw error;
   }
 
   if (response.status === 204) return null;
-
   const text = await response.text();
   return text ? JSON.parse(text) : null;
 }
@@ -387,6 +500,66 @@ function supabaseHeaders(config, extraHeaders = {}) {
     'Content-Type': 'application/json',
     ...extraHeaders,
   };
+}
+
+function normalizePackType(packType) {
+  const value = cleanText(packType);
+  return value === 'yearly' || value === 'monthly' ? value : '';
+}
+
+function normalizePaymentPackType(payment) {
+  return normalizePackType(payment?.pack_type) || normalizePackType(cleanText(payment?.proof_url).replace(/^pack:/, ''));
+}
+
+function packAmount(packType) {
+  return packType === 'yearly' ? 249 : 29;
+}
+
+function addPackDuration(start, packType) {
+  const end = new Date(start);
+  end.setDate(end.getDate() + (packType === 'yearly' ? 365 : 30));
+  return end;
+}
+
+function effectivePack(profile) {
+  const status = cleanText(profile.pack_status) || 'free';
+  const type = cleanText(profile.pack_type) || 'none';
+  const endAt = profile.pack_end_at;
+
+  if (status === 'active' && endAt) {
+    const end = new Date(endAt);
+    if (!Number.isNaN(end.getTime()) && end.getTime() < Date.now()) {
+      return { status: 'expired', type, startAt: profile.pack_start_at, endAt };
+    }
+  }
+
+  return { status, type, startAt: profile.pack_start_at, endAt };
+}
+
+function scanLimit(pack) {
+  if (pack.status === 'active' && pack.type === 'monthly') return 100;
+  if (pack.status === 'active' && pack.type === 'yearly') return 1500;
+  return 5;
+}
+
+function periodStart(pack) {
+  if (pack.status === 'active' && pack.startAt) {
+    const start = new Date(pack.startAt);
+    if (!Number.isNaN(start.getTime())) return start.toISOString();
+  }
+
+  const now = new Date();
+  if (pack.status === 'active' && pack.type === 'yearly') {
+    return new Date(Date.UTC(now.getUTCFullYear(), 0, 1)).toISOString();
+  }
+
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+}
+
+function limitMessage(pack, limit) {
+  if (pack.status === 'expired') return 'Votre pack est expiré. Passez à un pack premium pour continuer.';
+  if (pack.status !== 'active') return 'Vous avez atteint la limite de 5 scans du Pack Gratuit ce mois-ci. Passez à un pack premium pour continuer.';
+  return `Vous avez atteint la limite de ${limit} scans pour votre pack.`;
 }
 
 function parseContentRangeCount(contentRange) {

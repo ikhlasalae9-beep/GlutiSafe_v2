@@ -1,7 +1,9 @@
 import {
   activateUserPack,
+  assertCanUserAnalyze,
   blockUser,
   confirmPayment,
+  createManualPackRequest,
   deleteUserAccount,
   expireUserPack,
   makeUserAdmin,
@@ -58,6 +60,11 @@ export default async function handler(req, res) {
       return handleDeleteUser(req, res);
     }
 
+    if (req.method === 'POST' && pathname === '/api/packs/manual-request') {
+      const body = await readJsonBody(req);
+      return sendApiResult(res, createManualPackRequest({ requesterToken: readBearerToken(req), packType: body.pack_type || body.packType }));
+    }
+
     const adminUserMatch = pathname.match(/^\/api\/admin\/users\/([^/]+)\/([^/]+)$/);
     if (req.method === 'POST' && adminUserMatch) {
       return handleAdminUserAction(req, res, decodeURIComponent(adminUserMatch[1]), adminUserMatch[2]);
@@ -106,6 +113,7 @@ export default async function handler(req, res) {
 }
 
 async function handleAnalyze(req, res) {
+  await enforceAnalyzeLimitIfAuthenticated(req);
   const body = await readJsonBody(req);
   const image = String(body.base64Image || body.image || '').trim();
 
@@ -128,10 +136,17 @@ async function handleAnalyze(req, res) {
 }
 
 async function handleFullAnalysis(req, res) {
+  await enforceAnalyzeLimitIfAuthenticated(req);
   const { text = '' } = await readJsonBody(req);
   const analysis = analyzeIngredients(text);
   const explanation = await generateExplanation({ analysis, text });
   return res.status(200).json({ analysis, explanation });
+}
+
+async function enforceAnalyzeLimitIfAuthenticated(req) {
+  const token = readBearerToken(req);
+  if (!token) return;
+  await assertCanUserAnalyze({ requesterToken: token });
 }
 
 async function handleExplain(req, res) {
@@ -248,6 +263,18 @@ async function sendAdminResult(res, promise) {
     return res.status(error.status || 503).json({
       error: 'ADMIN_ACTION_UNAVAILABLE',
       message: error.message || 'Action admin impossible.',
+    });
+  }
+}
+
+async function sendApiResult(res, promise) {
+  try {
+    return res.status(200).json(await promise);
+  } catch (error) {
+    console.error('[vercel-api] action failed', { message: error.message, details: error.details });
+    return res.status(error.status || 503).json({
+      error: 'API_ACTION_UNAVAILABLE',
+      message: error.message || 'Action impossible.',
     });
   }
 }

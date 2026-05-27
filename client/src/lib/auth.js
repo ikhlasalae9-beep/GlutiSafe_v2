@@ -1,5 +1,13 @@
 import { requireSupabaseClient, supabase } from './supabaseClient.js';
-import { getPackDisplayName, getPackStatusLabel, getPackTypeLabel, normalizePackStatus, normalizePackType } from './packs.js';
+import {
+  describeCurrentPack,
+  getEffectivePackStatus,
+  getPackDisplayName,
+  getPackStatusLabel,
+  getPackTypeLabel,
+  normalizePackStatus,
+  normalizePackType,
+} from './packs.js';
 
 export async function registerUser({ name, email, password }) {
   const client = requireSupabaseClient();
@@ -134,6 +142,7 @@ function toAppUser(user) {
 export function normalizeProfile(profile = {}) {
   const packStatus = normalizePackStatus(profile.pack_status);
   const packType = normalizePackType(profile.pack_type);
+  const effectivePackStatus = getEffectivePackStatus({ packStatus, packType, packEndAt: profile.pack_end_at });
 
   return {
     id: profile.id,
@@ -141,13 +150,15 @@ export function normalizeProfile(profile = {}) {
     fullName: profile.full_name || '',
     email: normalizeEmail(profile.email),
     role: profile.role || 'user',
-    packStatus,
+    packStatus: effectivePackStatus,
+    rawPackStatus: packStatus,
     packType,
-    packDisplayName: getPackDisplayName(packStatus, packType),
-    packStatusLabel: getPackStatusLabel(packStatus),
-    packTypeLabel: getPackTypeLabel(packType, packStatus),
+    packDisplayName: getPackDisplayName(effectivePackStatus, packType),
+    packStatusLabel: getPackStatusLabel(effectivePackStatus),
+    packTypeLabel: getPackTypeLabel(packType, effectivePackStatus),
     packStartAt: profile.pack_start_at || null,
     packEndAt: profile.pack_end_at || null,
+    packDescription: describeCurrentPack({ packStatus: effectivePackStatus, packType, packEndAt: profile.pack_end_at }),
     createdAt: profile.created_at || null,
   };
 }

@@ -1,4 +1,5 @@
-import { getCurrentUser } from './auth.js';
+import { getCurrentProfile, getCurrentUser } from './auth.js';
+import { getPackLimit } from './packs.js';
 import { requireSupabaseClient } from './supabaseClient.js';
 import { deleteAnalysisImage, uploadAnalysisImage } from './storage.js';
 
@@ -8,15 +9,17 @@ export function textPreview(text = '') {
 }
 
 export async function getHistory() {
-  const user = await getCurrentUser();
-  if (!user) return [];
+  const profile = await getCurrentProfile();
+  if (!profile) return [];
+  const limit = getPackLimit(profile);
+  const rowLimit = Number.isFinite(limit.history) ? limit.history : 500;
 
   const { data, error } = await requireSupabaseClient()
     .from('analyses')
     .select('id, input_type, ocr_text, status, label, detected_words, possible_words, safe_claims, confidence, explanation, product_name, image_path, created_at')
-    .eq('user_id', user.id)
+    .eq('user_id', profile.id)
     .order('created_at', { ascending: false })
-    .limit(50);
+    .limit(rowLimit);
 
   if (error) throw new Error(error.message || "Impossible de charger l'historique.");
   return (data || []).map(normalizeAnalysisRow);

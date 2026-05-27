@@ -41,7 +41,7 @@ export default function PacksPage() {
     if (!selectedPack) return;
 
     if (method === 'paypal') {
-      setMessage(`PayPal est préparé pour ${selectedPack.title} (${selectedPack.paypalAmount}). L'activation sera faite après confirmation du paiement.`);
+      setMessage('PayPal sera bientôt disponible. Utilisez le paiement manuel pour le moment.');
       return;
     }
 
@@ -53,7 +53,8 @@ export default function PacksPage() {
     try {
       setRequesting(true);
       await createManualPackRequest({ profile, packType: selectedPack.packType });
-      setMessage('Votre demande de paiement manuel a été créée. Un administrateur confirmera votre pack après vérification.');
+      setMessage('Votre demande de paiement manuel a été envoyée. Un administrateur va la vérifier.');
+      setProfile(await getCurrentProfile());
       setSelectedPack(null);
     } catch (err) {
       setError(err.message || 'Impossible de créer la demande de paiement manuel.');
@@ -79,7 +80,7 @@ export default function PacksPage() {
           </div>
           <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
             <p className="text-xs font-black uppercase tracking-[0.12em] text-emerald-700">Pack actuel</p>
-            <p className="mt-1 text-lg font-black text-[#1d252b]">{currentPack.displayName}</p>
+            <p className="mt-1 text-lg font-black text-[#1d252b]">{profile?.packDescription || currentPack.displayName}</p>
           </div>
         </div>
       </header>
@@ -89,7 +90,9 @@ export default function PacksPage() {
 
       <section className="grid gap-5 lg:grid-cols-3">
         {PACKS.map((pack) => {
-          const isCurrent = currentPack.id === pack.id;
+          const isCurrent =
+            (profile?.packStatus === 'free' && pack.id === 'free') ||
+            (profile?.packStatus === 'active' && currentPack.id === pack.id);
           return (
             <article
               key={pack.id}
@@ -126,7 +129,7 @@ export default function PacksPage() {
                         : 'bg-[#008f45] text-white hover:bg-[#004b3a]'
                     }`}
                   >
-                    {isCurrent ? 'Pack actuel' : pack.cta}
+                    {isCurrent ? 'Pack actuel' : 'Demander ce pack'}
                   </Link>
                 ) : (
                   <button
@@ -136,7 +139,7 @@ export default function PacksPage() {
                     className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#008f45] px-5 py-3 text-sm font-black text-white transition hover:bg-[#004b3a] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
                   >
                     <CreditCard className="h-4 w-4" aria-hidden="true" />
-                    {isCurrent ? 'Pack actuel' : pack.cta}
+                    {isCurrent ? 'Pack actuel' : 'Demander ce pack'}
                   </button>
                 )}
               </div>

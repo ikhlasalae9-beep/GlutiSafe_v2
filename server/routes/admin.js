@@ -3,6 +3,7 @@ import {
   activateUserPack,
   blockUser,
   confirmPayment,
+  createManualPackRequest,
   deleteUserAccount,
   expireUserPack,
   makeUserAdmin,
@@ -39,6 +40,18 @@ router.post('/admin/payments/:id/reject', async (req, res) => {
     const result = await rejectPayment({
       requesterToken: readBearerToken(req),
       paymentId: req.params.id,
+    });
+    res.json(result);
+  } catch (error) {
+    sendAdminError(res, error);
+  }
+});
+
+router.post('/packs/manual-request', async (req, res) => {
+  try {
+    const result = await createManualPackRequest({
+      requesterToken: readBearerToken(req),
+      packType: req.body?.pack_type || req.body?.packType,
     });
     res.json(result);
   } catch (error) {

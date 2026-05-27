@@ -1,4 +1,5 @@
 import { API_URL } from '../config/api.js';
+import { supabase } from './supabaseClient.js';
 
 export async function extractTextWithEasyOCR(file) {
   if (!file) {
@@ -7,9 +8,13 @@ export async function extractTextWithEasyOCR(file) {
 
   let response;
   try {
+    const token = await getAccessToken();
     response = await fetch(`${API_URL}/api/analyze`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify({ base64Image: await fileToDataUrl(file) }),
     });
   } catch {
@@ -33,6 +38,12 @@ export async function extractTextWithEasyOCR(file) {
     ...payload,
     text: String(payload.text || '').replace(/\s+/g, ' ').trim(),
   };
+}
+
+async function getAccessToken() {
+  if (!supabase) return '';
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token || '';
 }
 
 function fileToDataUrl(file) {

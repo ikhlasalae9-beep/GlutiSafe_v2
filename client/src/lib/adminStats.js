@@ -1,6 +1,6 @@
 import { API_URL } from '../config/api.js';
 import { cleanSupabaseError, getCurrentProfile } from './auth.js';
-import { getPackDisplayName, getPackStatusLabel, getPackTypeLabel, normalizePackStatus, normalizePackType } from './packs.js';
+import { describeCurrentPack, getEffectivePackStatus, getPackDisplayName, getPackStatusLabel, getPackTypeLabel, normalizePackStatus, normalizePackType } from './packs.js';
 import { SUPABASE_URL, isSupabaseConfigured, requireSupabaseClient } from './supabaseClient.js';
 
 const DASHBOARD_LIMITS = {
@@ -185,19 +185,22 @@ async function fetchOptionalPayments(client) {
 function normalizeAdminUser(profile = {}) {
   const packStatus = normalizePackStatus(profile.pack_status);
   const packType = normalizePackType(profile.pack_type);
+  const effectivePackStatus = getEffectivePackStatus({ packStatus, packType, packEndAt: profile.pack_end_at });
 
   return {
     id: profile.id,
     name: profile.full_name || profile.email?.split('@')[0] || 'Utilisateur',
     email: profile.email || '',
     role: profile.role || 'user',
-    packStatus,
+    packStatus: effectivePackStatus,
+    rawPackStatus: packStatus,
     packType,
-    packDisplayName: getPackDisplayName(packStatus, packType),
-    packStatusLabel: getPackStatusLabel(packStatus),
-    packTypeLabel: getPackTypeLabel(packType, packStatus),
+    packDisplayName: getPackDisplayName(effectivePackStatus, packType),
+    packStatusLabel: getPackStatusLabel(effectivePackStatus),
+    packTypeLabel: getPackTypeLabel(packType, effectivePackStatus),
     packStartAt: profile.pack_start_at || null,
     packEndAt: profile.pack_end_at || null,
+    packDescription: describeCurrentPack({ packStatus: effectivePackStatus, packType, packEndAt: profile.pack_end_at }),
     createdAt: profile.created_at || null,
   };
 }

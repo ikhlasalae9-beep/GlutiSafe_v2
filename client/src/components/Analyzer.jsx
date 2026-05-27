@@ -2,6 +2,7 @@ import { AlertTriangle, CheckCircle2, Keyboard, ScanLine, ShieldCheck } from 'lu
 import { useMemo, useState } from 'react';
 import { fullAnalysis } from '../lib/api.js';
 import { extractTextWithEasyOCR } from '../lib/ocrApi.js';
+import { assertCanAnalyze } from '../lib/packUsage.js';
 import { logCompletedScan } from '../lib/scanStats.js';
 import CameraCapture from './CameraCapture.jsx';
 import ExtractedTextEditor from './ExtractedTextEditor.jsx';
@@ -92,6 +93,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
     setProgress(10);
 
     try {
+      await assertCanAnalyze();
       const result = await extractTextWithEasyOCR(file);
       const extracted = result.text;
       setOcrEngine(result.engine || 'EasyOCR');
@@ -124,6 +126,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
     setSaved(false);
 
     try {
+      await assertCanAnalyze();
       const result = await fullAnalysis(text);
       const savedAnalysis = await logCompletedScan({ result, text, inputType: method, productName, imageFile: file });
       if (savedAnalysis?.imageUploadWarning) setSaveWarning(savedAnalysis.imageUploadWarning);
