@@ -98,10 +98,12 @@ export default function ProfilePage() {
               <Field label="Pack" value={user.packDescription || user.packDisplayName || 'Pack Gratuit'} />
               <Field label="Statut" value={user.packStatusLabel || 'Gratuit'} />
               <Field label="Fin du pack" value={formatDate(user.packEndAt)} />
-              <Field label="Tokens restants" value={tokenInfo ? `${tokenInfo.remaining}` : '-'} />
-              <Field label="Reinitialisation" value={tokenInfo?.packStatus === 'active' ? formatDate(tokenInfo.periodEnd) : formatTokenReset(tokenInfo?.periodEnd)} />
               <Field label="Demande en attente" value={pendingRequest ? `${pendingRequest.pack_type} - ${pendingRequest.payment_method}` : '-'} />
             </div>
+          </Panel>
+
+          <Panel icon={WalletCards} title="Usage">
+            <UsageSection user={user} tokenInfo={tokenInfo} />
           </Panel>
 
           <Panel icon={Bell} title="Contrôle du compte">
@@ -147,8 +149,51 @@ function Field({ label, value }) {
   return (
     <label className="block">
       <span className="text-sm font-bold text-slate-700">{label}</span>
-      <input className="field-control mt-2" defaultValue={value} />
+      <input className="field-control mt-2" value={value || '-'} readOnly />
     </label>
+  );
+}
+
+function UsageSection({ user, tokenInfo }) {
+  const used = Number(tokenInfo?.used || 0);
+  const limit = Number(tokenInfo?.limit || 0);
+  const remaining = Number(tokenInfo?.remaining || 0);
+  const percentage = limit > 0 ? Math.min((used / limit) * 100, 100) : 0;
+  const tone = percentage >= 100 ? 'bg-red-600' : percentage >= 80 ? 'bg-amber-500' : 'bg-[#008f45]';
+
+  return (
+    <div className="rounded-[1.25rem] border border-[#dfe8df] bg-[#f7f8f6] p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.12em] text-[#008f45]">Pack actuel</p>
+          <h3 className="mt-1 text-2xl font-black text-[#1d252b]">{getUsagePackLabel(user, tokenInfo)}</h3>
+          <p className="mt-2 text-sm font-semibold text-slate-600">{getUsageInfoLabel(user, tokenInfo)}</p>
+        </div>
+        <div className="rounded-2xl border border-[#dfe8df] bg-white px-4 py-3 text-right">
+          <p className="text-2xl font-black text-[#1d252b]">{Math.round(percentage)}%</p>
+          <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">utilisé</p>
+        </div>
+      </div>
+
+      <div className="mt-5 h-3 overflow-hidden rounded-full bg-white ring-1 ring-[#dfe8df]">
+        <div className={`h-full rounded-full ${tone}`} style={{ width: `${percentage}%` }} />
+      </div>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+        <UsageMetric label="Tokens utilisés" value={`${used} / ${limit}`} />
+        <UsageMetric label="Tokens restants" value={remaining} />
+        <UsageMetric label="Limite" value={limit} />
+      </div>
+    </div>
+  );
+}
+
+function UsageMetric({ label, value }) {
+  return (
+    <div className="rounded-2xl border border-[#dfe8df] bg-white p-4">
+      <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">{label}</p>
+      <p className="mt-2 text-lg font-black text-[#1d252b]">{value}</p>
+    </div>
   );
 }
 
@@ -170,8 +215,38 @@ function Metric({ label, value }) {
   );
 }
 
+function getUsagePackLabel(user, tokenInfo) {
+  if (user.packStatus === 'blocked' || tokenInfo?.packStatus === 'blocked') return 'Compte bloqué';
+  if (user.packStatus === 'pending') return 'Demande en attente';
+  if (user.packStatus === 'expired') return 'Pack expiré';
+  if (tokenInfo?.packStatus === 'active' && tokenInfo.packType === 'monthly') return 'Pack Mensuel';
+  if (tokenInfo?.packStatus === 'active' && tokenInfo.packType === 'yearly') return 'Pack Annuel';
+  return 'Pack Gratuit';
+}
+
+function getUsageInfoLabel(user, tokenInfo) {
+  if (!tokenInfo) return '-';
+  if (user.packStatus === 'blocked' || tokenInfo.packStatus === 'blocked') return "Votre compte est bloqué. Contactez l'administration.";
+  if (user.packStatus === 'pending') return 'Votre demande est en attente de vérification administrateur.';
+  if (tokenInfo.packStatus === 'active' && tokenInfo.packType === 'monthly') return `Pack mensuel actif jusqu'au ${formatDate(tokenInfo.periodEnd)}`;
+  if (tokenInfo.packStatus === 'active' && tokenInfo.packType === 'yearly') return `Pack annuel actif jusqu'au ${formatDate(tokenInfo.periodEnd)}`;
+  if (user.packStatus === 'expired') return 'Pack expiré. Vous utilisez les limites du Pack Gratuit.';
+  return `Réinitialisation : ${formatResetLabel(tokenInfo.periodStart, tokenInfo.periodEnd)}`;
+}
+
 function formatDate(value) {
   if (!value) return '-';
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString('fr-FR');
+}
+
+function formatResetLabel(periodStart, periodEnd) {
+  if (!periodStart || !periodEnd) return '-';
+  const start = new Date(periodStart);
+  const end = new Date(periodEnd);
+  const hours = Math.round((end.getTime() - start.getTime()) / 36e5);
+  if (hours === 5) return 'toutes les 5h';
+  if (hours === 168) return 'tous les 7 jours';
+  if (hours === 24) return 'toutes les 24h';
+  return formatTokenReset(periodEnd);
 }

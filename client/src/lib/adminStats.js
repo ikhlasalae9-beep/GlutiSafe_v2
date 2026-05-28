@@ -28,7 +28,7 @@ export async function fetchAdminDashboard() {
     throw new Error("Accès refusé. Ce compte n'est pas administrateur.");
   }
 
-  const [profilesResult, analysesResult, subscriptionsResult, paymentRequestsResult, packSettings, paymentSettings] = await Promise.all([
+  const [profilesResult, analysesResult, subscriptionsResult, paymentRequestsResult, pendingRequestsCountResult, packSettings, paymentSettings] = await Promise.all([
     client
       .from('profiles')
       .select('id, full_name, email, role, pack_status, pack_type, pack_start_at, pack_end_at, created_at')
@@ -43,6 +43,7 @@ export async function fetchAdminDashboard() {
       .limit(DASHBOARD_LIMITS.analyses),
     fetchOptionalSubscriptions(client),
     fetchOptionalPaymentRequests(client),
+    fetchPendingPaymentRequestsCount(client),
     getPackSettings(),
     getPaymentSettings(),
   ]);
@@ -54,15 +55,23 @@ export async function fetchAdminDashboard() {
 
   const users = (profilesResult.data || []).map(normalizeAdminUser);
   const userById = new Map(users.map((user) => [user.id, user]));
+  const requestProfiles = await fetchProfilesForRequests(client, paymentRequestsResult.data || []);
+  requestProfiles.forEach((requestProfile) => {
+    userById.set(requestProfile.id, normalizeAdminUser(requestProfile));
+  });
   const analyses = (analysesResult.data || []).map((analysis) => normalizeAdminAnalysis(analysis, userById));
   const subscriptions = (subscriptionsResult.data || []).map((subscription) => normalizeSubscription(subscription, userById));
   const payments = (paymentRequestsResult.data || []).map((payment) => normalizePaymentRequest(payment, userById));
+  const pendingPaymentRequests = payments.filter((payment) => payment.status === 'pending');
   const mainAdmin = users.find((user) => user.role === 'admin');
   const scanStats = buildScanStats(analyses);
   const activeMonthlyCount = users.filter((user) => user.packStatus === 'active' && user.packType === 'monthly').length;
   const activeYearlyCount = users.filter((user) => user.packStatus === 'active' && user.packType === 'yearly').length;
-  const freeUsersCount = users.filter((user) => user.packStatus === 'free' || user.packStatus === 'expired').length;
-  const pendingPaymentRequestsCount = payments.filter((payment) => payment.status === 'pending').length;
+  const freeUsersCount = users.filter((user) => user.packStatus === 'free').length;
+  const pendingPaymentRequestsCount = pendingRequestsCountResult.count || 0;
+
+  console.log('pending payment requests', pendingPaymentRequests);
+  console.log('pending payment requests count', pendingPaymentRequestsCount);
 
   return {
     admin: profile,
@@ -70,6 +79,7 @@ export async function fetchAdminDashboard() {
     analyses,
     subscriptions,
     payments,
+    pendingPaymentRequests,
     packSettings,
     paymentSettings,
     usersCount: users.length,
@@ -82,6 +92,8 @@ export async function fetchAdminDashboard() {
     mainAdmin: mainAdmin?.name || mainAdmin?.email || 'Admin',
     latestUsers: users.slice(0, 8),
     latestAnalyses: analyses.slice(0, 8),
+    latestPendingRequests: pendingPaymentRequests.slice(0, 5),
+    packDistribution: buildPackDistribution(users, pendingPaymentRequestsCount),
     scanStats,
     aiUsage: buildAiUsage(analyses),
     settings: {
@@ -150,7 +162,7 @@ export async function runAdminPaymentAction(paymentId, action) {
 
     const { error: paymentError } = await client
       .from('payment_requests')
-      .update({ status: 'confirmed', confirmed_by: adminId, confirmed_at: now.toISOString() })
+      .update({ status: 'confirmed', confirmed_by: adminId, confirmed_at: now.toISOString(), updated_at: now.toISOString() })
       .eq('id', paymentId);
     if (paymentError) throw new Error(paymentError.message || 'Confirmation paiement impossible.');
 
@@ -179,7 +191,7 @@ export async function runAdminPaymentAction(paymentId, action) {
 
   if (action === 'reject') {
     const nowIso = new Date().toISOString();
-    const { error: paymentError } = await client.from('payment_requests').update({ status: 'rejected', rejected_at: nowIso }).eq('id', paymentId);
+    const { error: paymentError } = await client.from('payment_requests').update({ status: 'rejected', updated_at: nowIso }).eq('id', paymentId);
     if (paymentError) throw new Error(paymentError.message || 'Rejet paiement impossible.');
 
     const { data: activeProfile } = await client
@@ -238,17 +250,47 @@ async function fetchOptionalSubscriptions(client) {
 }
 
 async function fetchOptionalPaymentRequests(client) {
-  const result = await client
+  const pendingResult = await client
     .from('payment_requests')
-    .select('id, user_id, pack_type, payment_method, amount, status, user_note, confirmed_by, confirmed_at, rejected_at, created_at, updated_at')
+    .select('id, user_id, pack_type, payment_method, amount, status, user_note, admin_note, confirmed_by, confirmed_at, created_at, updated_at')
+    .eq('status', 'pending')
     .order('created_at', { ascending: false })
     .limit(DASHBOARD_LIMITS.paymentRequests);
 
-  if (result.error) {
+  const rejectedResult = await client
+    .from('payment_requests')
+    .select('id, user_id, pack_type, payment_method, amount, status, user_note, admin_note, confirmed_by, confirmed_at, created_at, updated_at')
+    .eq('status', 'rejected')
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  if (pendingResult.error && rejectedResult.error) {
     return { data: [], error: null, unavailable: true };
   }
 
-  return result;
+  return { data: [...(pendingResult.data || []), ...(rejectedResult.data || [])], error: null };
+}
+
+async function fetchPendingPaymentRequestsCount(client) {
+  const { count, error } = await client
+    .from('payment_requests')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'pending');
+
+  return { count: error ? 0 : count || 0, error: null };
+}
+
+async function fetchProfilesForRequests(client, requests = []) {
+  const userIds = [...new Set(requests.map((request) => request.user_id).filter(Boolean))];
+  if (userIds.length === 0) return [];
+
+  const { data, error } = await client
+    .from('profiles')
+    .select('id, full_name, email, role, pack_status, pack_type, pack_start_at, pack_end_at, created_at')
+    .in('id', userIds);
+
+  if (error) return [];
+  return data || [];
 }
 
 async function readPaymentRequest(client, paymentId) {
@@ -336,12 +378,24 @@ function normalizePaymentRequest(payment = {}, userById = new Map()) {
     currency: 'MAD',
     status: payment.status || 'pending',
     userNote: payment.user_note || '',
+    adminNote: payment.admin_note || '',
     confirmedBy: payment.confirmed_by || null,
     confirmedAt: payment.confirmed_at || null,
     rejectedAt: payment.rejected_at || null,
     createdAt: payment.created_at || null,
     updatedAt: payment.updated_at || null,
   };
+}
+
+function buildPackDistribution(users = [], pendingRequestsCount = 0) {
+  return [
+    { label: 'Free', value: users.filter((user) => user.packStatus === 'free').length },
+    { label: 'Pending', value: pendingRequestsCount },
+    { label: 'Monthly active', value: users.filter((user) => user.packStatus === 'active' && user.packType === 'monthly').length },
+    { label: 'Yearly active', value: users.filter((user) => user.packStatus === 'active' && user.packType === 'yearly').length },
+    { label: 'Expired', value: users.filter((user) => user.packStatus === 'expired').length },
+    { label: 'Blocked', value: users.filter((user) => user.packStatus === 'blocked').length },
+  ];
 }
 
 function buildScanStats(analyses = []) {

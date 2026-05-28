@@ -109,7 +109,7 @@ function PaymentRequests({ payments, actionLoading, onPaymentAction, showActions
     <section className="rounded-[1.25rem] border border-[#dfe8df] bg-white p-5 shadow-sm">
       <h2 className="text-lg font-extrabold text-[#1d252b]">{showActions ? 'Demandes en attente' : 'Demandes rejetees'}</h2>
       <div className="mt-4 grid gap-3">
-        {payments.length === 0 ? <p className="text-sm font-bold text-slate-500">Aucune demande disponible.</p> : null}
+        {payments.length === 0 ? <p className="text-sm font-bold text-slate-500">{showActions ? 'Aucune demande en attente.' : 'Aucune demande rejetee.'}</p> : null}
         {payments.map((payment) => (
           <div key={payment.id} className="rounded-2xl border border-[#dfe8df] bg-[#f7f8f6] p-4">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -123,6 +123,7 @@ function PaymentRequests({ payments, actionLoading, onPaymentAction, showActions
                   <Badge>{payment.status}</Badge>
                   <Badge>{formatDateTime(payment.createdAt)}</Badge>
                 </div>
+                <p className="mt-2 text-xs font-bold text-slate-500">Pack: {payment.packType} - Methode: {payment.paymentMethod}</p>
                 {payment.userNote ? <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">{payment.userNote}</p> : null}
               </div>
               {showActions ? (

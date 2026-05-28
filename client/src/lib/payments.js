@@ -17,6 +17,21 @@ export async function createManualPackRequest({ profile, packType, paymentMethod
     throw new Error('Choisissez RIB ou CashPlus.');
   }
 
+  const { data: existingPending, error: existingError } = await client
+    .from('payment_requests')
+    .select('id')
+    .eq('user_id', profile.id)
+    .eq('status', 'pending')
+    .maybeSingle();
+
+  if (existingError) {
+    throw new Error(existingError.message || 'Impossible de verifier vos demandes en attente.');
+  }
+
+  if (existingPending) {
+    throw new Error('Vous avez deja une demande en attente.');
+  }
+
   const settings = await getPackSettings();
   const { data, error } = await client
     .from('payment_requests')
