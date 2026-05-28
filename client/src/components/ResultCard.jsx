@@ -1,4 +1,4 @@
-import { Bot, RefreshCw, Save, ShieldCheck } from 'lucide-react';
+import { Bot, Lock, RefreshCw, Save, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { confidenceLabel, getStatusStyle } from '../lib/status.js';
 import RiskBadges from './RiskBadges.jsx';
@@ -32,9 +32,7 @@ export default function ResultCard({
             </span>
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.18em] opacity-80">Résultat GlutiSafe</p>
-              <h2 className="mt-2 text-2xl font-extrabold text-[#1d252b] sm:text-3xl">
-                {normalizedAnalysis.label || style.label}
-              </h2>
+              <h2 className="mt-2 text-2xl font-extrabold text-[#1d252b] sm:text-3xl">{normalizedAnalysis.label || style.label}</h2>
               <p className="mt-2 text-sm font-semibold opacity-80">{style.tone}</p>
             </div>
           </div>
@@ -59,9 +57,7 @@ export default function ResultCard({
         {text ? (
           <div className="soft-card p-5">
             <p className="brand-kicker">Texte extrait</p>
-            <p className="mt-3 max-h-44 overflow-auto rounded-2xl bg-[#f7f8f6] p-4 text-sm leading-7 text-slate-600">
-              {text}
-            </p>
+            <p className="mt-3 max-h-44 overflow-auto rounded-2xl bg-[#f7f8f6] p-4 text-sm leading-7 text-slate-600">{text}</p>
           </div>
         ) : null}
 
@@ -80,22 +76,37 @@ export default function ResultCard({
             </div>
           </div>
         ) : (
-          <div className="soft-card p-5">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-lg font-extrabold text-[#1d252b]">Explication IA premium</p>
-                <p className="mt-2 text-sm leading-7 text-slate-600">L’explication IA est disponible avec le Pack Mensuel ou Annuel.</p>
+          <div className="relative overflow-hidden rounded-[1.25rem] border border-emerald-200 bg-white p-5 shadow-sm">
+            <div className="absolute inset-x-5 top-5 space-y-3 opacity-45 blur-[2px]" aria-hidden="true">
+              <div className="h-4 w-48 rounded-full bg-emerald-100" />
+              <div className="h-3 w-full rounded-full bg-slate-100" />
+              <div className="h-3 w-10/12 rounded-full bg-slate-100" />
+              <div className="h-3 w-8/12 rounded-full bg-slate-100" />
+            </div>
+            <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-[#008f45] ring-1 ring-emerald-200">
+                  <Lock className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <div>
+                  <span className="inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-[#008f45] ring-1 ring-emerald-200">
+                    Premium
+                  </span>
+                  <p className="mt-3 text-lg font-extrabold text-[#1d252b]">Explication IA réservée aux packs premium</p>
+                  <p className="mt-2 text-sm leading-7 text-slate-600">
+                    L’explication prudente détaillée vous aide à mieux comprendre les risques liés aux ingrédients.
+                  </p>
+                </div>
               </div>
-              <Link to="/packs" className="primary-btn justify-center">
-                Voir les packs
+              <Link to="/packs" className="primary-btn shrink-0 justify-center">
+                Débloquer l’explication IA
               </Link>
             </div>
           </div>
         )}
 
         <p className="rounded-2xl border border-[#dfe8df] bg-[#f7f8f6] px-4 py-3 text-sm leading-6 text-slate-600">
-          GlutiSafe aide à lire une étiquette, mais ne remplace pas la vérification de l'emballage officiel ni les
-          informations du fabricant.
+          GlutiSafe aide à lire une étiquette, mais ne remplace pas la vérification de l'emballage officiel ni les informations du fabricant.
         </p>
 
         {(onSave || onNew || onHistory) && (

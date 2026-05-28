@@ -14,7 +14,10 @@ async function request(path, body) {
 
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
-    throw new Error(payload.message || 'Le serveur GlutiSafe ne répond pas correctement.');
+    const error = new Error(payload.message || 'Le serveur GlutiSafe ne repond pas correctement.');
+    error.code = payload.error || '';
+    error.status = response.status;
+    throw error;
   }
 
   return response.json();

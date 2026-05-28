@@ -18,7 +18,7 @@ export async function assertCanUseAiAssistant({ requesterToken } = {}) {
 
   const usage = await readAiMessageUsage(access.config, access.user.id);
   if (usage.message_count >= FREE_AI_MESSAGES_LIMIT) {
-    const error = new Error('Vous avez atteint la limite gratuite de 5 messages IA. Passez à un pack premium pour continuer.');
+    const error = new Error('Vous avez atteint la limite gratuite de 5 messages IA. Passez à un pack premium pour continuer à utiliser l’assistant IA.');
     error.status = 429;
     throw error;
   }

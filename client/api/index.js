@@ -186,7 +186,7 @@ async function handleChatbot(req, res) {
     aiAccess = await assertCanUseAiAssistant({ requesterToken });
   } catch (error) {
     return res.status(error.status || 401).json({
-      error: 'AI_ASSISTANT_LIMIT',
+      error: error.status === 429 ? 'FREE_AI_LIMIT_REACHED' : 'AI_ASSISTANT_UNAVAILABLE',
       message: error.message || 'Connectez-vous pour utiliser l’assistant IA.',
     });
   }

@@ -1,16 +1,16 @@
-import { Bot, MessageCircle, RotateCcw, Send, X } from 'lucide-react';
+import { Bot, Lock, MessageCircle, RotateCcw, Send, X } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { sendChatbotMessage } from '../lib/api.js';
 import Button from './Button.jsx';
 
 const CHATBOT_CONTEXT_KEY = 'glutisafe_last_scan_context';
+const FREE_AI_LIMIT_CODES = new Set(['FREE_AI_LIMIT_REACHED', 'AI_LIMIT_REACHED']);
 
 const WELCOME_MESSAGE = {
   id: 'welcome',
   role: 'assistant',
-  content:
-    'Bonjour 👋 Je suis l’assistant GlutiSafe. Posez-moi une question sur les ingrédients, le gluten ou votre résultat de scan.',
+  content: 'Bonjour. Je suis l’assistant GlutiSafe. Posez-moi une question sur les ingrédients, le gluten ou votre résultat de scan.',
 };
 
 const GENERIC_ERROR = 'Le service d’assistance est momentanément indisponible. Réessayez dans un instant.';
@@ -22,10 +22,11 @@ export default function ChatbotWidget() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [limitReached, setLimitReached] = useState(false);
   const lastUserMessage = useRef('');
 
   const hidden = location.pathname === '/admin' || location.pathname === '/admin-secure';
-  const canSend = useMemo(() => input.trim().length > 0 && !loading, [input, loading]);
+  const canSend = useMemo(() => input.trim().length > 0 && !loading && !limitReached, [input, loading, limitReached]);
 
   if (hidden) return null;
 
@@ -36,28 +37,28 @@ export default function ChatbotWidget() {
 
   const sendMessage = async (value) => {
     const cleanMessage = String(value || '').trim();
-    if (!cleanMessage || loading) return;
+    if (!cleanMessage || loading || limitReached) return;
 
     lastUserMessage.current = cleanMessage;
     setInput('');
     setError('');
     setLoading(true);
-    setMessages((current) => [
-      ...current,
-      { id: crypto.randomUUID(), role: 'user', content: cleanMessage },
-    ]);
+    setMessages((current) => [...current, { id: crypto.randomUUID(), role: 'user', content: cleanMessage }]);
 
     try {
       const data = await sendChatbotMessage({
         message: cleanMessage,
         context: getStoredScanContext() || {},
       });
-      setMessages((current) => [
-        ...current,
-        { id: crypto.randomUUID(), role: 'assistant', content: data.reply },
-      ]);
+      setMessages((current) => [...current, { id: crypto.randomUUID(), role: 'assistant', content: data.reply }]);
     } catch (sendError) {
-      setError(sendError.message || GENERIC_ERROR);
+      if (FREE_AI_LIMIT_CODES.has(sendError.code) || sendError.status === 429) {
+        setLimitReached(true);
+        setInput('');
+        setError('');
+      } else {
+        setError(sendError.message || GENERIC_ERROR);
+      }
     } finally {
       setLoading(false);
     }
@@ -115,16 +116,17 @@ export default function ChatbotWidget() {
                 </button>
               </div>
             ) : null}
+            {limitReached ? <AiLimitUpgradeCard /> : null}
           </div>
 
           <form className="flex gap-2 border-t border-[#dfe8df] bg-white p-3" onSubmit={handleSubmit}>
             <input
-              className="min-w-0 flex-1 rounded-2xl border border-[#dfe8df] bg-[#f7f8f6] px-3 py-2 text-sm text-[#1d252b] outline-none transition placeholder:text-slate-400 focus:border-[#008f45] focus:bg-white focus:ring-4 focus:ring-[#a8cfa5]/35"
-              placeholder="Écrivez votre question..."
+              className="min-w-0 flex-1 rounded-2xl border border-[#dfe8df] bg-[#f7f8f6] px-3 py-2 text-sm text-[#1d252b] outline-none transition placeholder:text-slate-400 focus:border-[#008f45] focus:bg-white focus:ring-4 focus:ring-[#a8cfa5]/35 disabled:cursor-not-allowed disabled:text-slate-400"
+              placeholder={limitReached ? 'Limite gratuite atteinte' : 'Écrivez votre question...'}
               value={input}
               onChange={(event) => setInput(event.target.value)}
               maxLength={1600}
-              disabled={loading}
+              disabled={loading || limitReached}
             />
             <Button type="submit" className="h-11 w-11 px-0" aria-label="Envoyer" icon={Send} disabled={!canSend} />
           </form>
@@ -143,15 +145,34 @@ export default function ChatbotWidget() {
   );
 }
 
+function AiLimitUpgradeCard() {
+  return (
+    <div className="rounded-2xl border border-emerald-200 bg-white p-4 text-sm leading-6 shadow-sm">
+      <div className="flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-[#008f45]">
+          <Lock className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <p className="font-black text-[#1d252b]">Limite IA atteinte</p>
+          <p className="mt-1 font-semibold text-slate-600">
+            Votre Pack Gratuit inclut 5 messages avec l’assistant IA. Pour continuer, passez au Pack Mensuel ou Annuel.
+          </p>
+          <Link to="/packs" className="mt-3 inline-flex items-center justify-center rounded-2xl bg-[#008f45] px-4 py-2 text-xs font-black text-white transition hover:bg-[#004b3a]">
+            Voir les packs
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ChatBubble({ message }) {
   const isUser = message.role === 'user';
 
   return (
     <div
       className={`whitespace-pre-wrap rounded-2xl p-3 text-sm leading-6 shadow-sm ${
-        isUser
-          ? 'ml-auto max-w-[84%] rounded-tr-sm bg-[#008f45] text-white'
-          : 'max-w-[88%] rounded-tl-sm bg-white text-slate-700 ring-1 ring-[#dfe8df]'
+        isUser ? 'ml-auto max-w-[84%] rounded-tr-sm bg-[#008f45] text-white' : 'max-w-[88%] rounded-tl-sm bg-white text-slate-700 ring-1 ring-[#dfe8df]'
       }`}
     >
       {message.content}
