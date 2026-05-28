@@ -1,4 +1,4 @@
-import { getPackByType } from './packs.js';
+import { getPackAmountDh, getPackByType, getPackSettings } from './packs.js';
 import { requireSupabaseClient } from './supabaseClient.js';
 
 export async function createManualPackRequest({ profile, packType, paymentMethod, userNote = '' }) {
@@ -17,15 +17,33 @@ export async function createManualPackRequest({ profile, packType, paymentMethod
     throw new Error('Choisissez RIB ou CashPlus.');
   }
 
-  const { data, error } = await client.rpc('request_manual_pack', {
-    requested_pack_type: pack.packType,
-    requested_payment_method: paymentMethod,
-    requested_user_note: String(userNote || '').trim(),
-  });
+  const settings = await getPackSettings();
+  const { data, error } = await client
+    .from('payment_requests')
+    .insert({
+      user_id: profile.id,
+      pack_type: pack.packType,
+      payment_method: paymentMethod,
+      amount: getPackAmountDh(pack.packType, settings),
+      status: 'pending',
+      user_note: String(userNote || '').trim() || null,
+    })
+    .select('*')
+    .single();
 
   if (error) {
     throw new Error(error.message || 'Impossible de creer la demande de paiement.');
   }
+
+  await client
+    .from('profiles')
+    .update({
+      pack_status: 'pending',
+      pack_type: pack.packType,
+      pack_start_at: null,
+      pack_end_at: null,
+    })
+    .eq('id', profile.id);
 
   return data;
 }

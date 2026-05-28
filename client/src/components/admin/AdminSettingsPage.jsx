@@ -36,7 +36,8 @@ export default function AdminSettingsPage({ dashboard, onSaved }) {
     setMessage('');
     setError('');
     try {
-      setPackForm(await updatePackSettings(packForm));
+      const payload = parsePackForm(packForm);
+      setPackForm(await updatePackSettings(payload));
       setMessage('Parametres des packs sauvegardes.');
       await onSaved?.();
     } catch (err) {
@@ -90,24 +91,35 @@ export default function AdminSettingsPage({ dashboard, onSaved }) {
           <SlidersHorizontal className="h-5 w-5 text-[#008f45]" aria-hidden="true" />
           <h2 className="text-lg font-extrabold text-[#1d252b]">Parametres des packs</h2>
         </div>
-        <div className="mt-5 grid gap-4 md:grid-cols-3">
-          <NumberField label="Tokens gratuits" value={packForm.free_tokens} onChange={(value) => setPackForm({ ...packForm, free_tokens: value })} />
-          <label className="block">
-            <span className="text-sm font-bold text-slate-700">Reinitialisation gratuite</span>
-            <select
-              value={packForm.free_reset_hours || 24}
-              onChange={(event) => setPackForm({ ...packForm, free_reset_hours: Number(event.target.value) })}
-              className="mt-2 w-full rounded-2xl border border-[#dfe8df] bg-[#f7f8f6] px-4 py-3 text-sm font-bold outline-none"
-            >
-              <option value={5}>5 heures</option>
-              <option value={24}>24 heures</option>
-              <option value={168}>7 jours</option>
-            </select>
-          </label>
-          <NumberField label="Tokens mensuels" value={packForm.monthly_tokens} onChange={(value) => setPackForm({ ...packForm, monthly_tokens: value })} />
-          <NumberField label="Tokens annuels" value={packForm.yearly_tokens} onChange={(value) => setPackForm({ ...packForm, yearly_tokens: value })} />
-          <NumberField label="Prix mensuel MAD" value={packForm.monthly_price_mad} onChange={(value) => setPackForm({ ...packForm, monthly_price_mad: value })} />
-          <NumberField label="Prix annuel MAD" value={packForm.yearly_price_mad} onChange={(value) => setPackForm({ ...packForm, yearly_price_mad: value })} />
+
+        <div className="mt-5 grid gap-5 xl:grid-cols-3">
+          <PackBox title="Pack Gratuit">
+            <NumberField label="Tokens gratuits" value={packForm.free_tokens} onChange={(value) => setPackForm({ ...packForm, free_tokens: value })} />
+            <label className="block">
+              <span className="text-sm font-bold text-slate-700">Reinitialisation</span>
+              <select
+                value={String(packForm.free_reset_hours || 24)}
+                onChange={(event) => setPackForm({ ...packForm, free_reset_hours: event.target.value })}
+                className="mt-2 w-full rounded-2xl border border-[#dfe8df] bg-[#f7f8f6] px-4 py-3 text-sm font-bold outline-none"
+              >
+                <option value="5">5 heures</option>
+                <option value="24">24 heures</option>
+                <option value="168">7 jours</option>
+              </select>
+            </label>
+          </PackBox>
+
+          <PackBox title="Pack Mensuel">
+            <NumberField label="Prix mensuel MAD" value={packForm.monthly_price_mad} onChange={(value) => setPackForm({ ...packForm, monthly_price_mad: value })} />
+            <NumberField label="Tokens mensuels" value={packForm.monthly_tokens} onChange={(value) => setPackForm({ ...packForm, monthly_tokens: value })} />
+            <ReadOnly label="Duree" value="30 jours" />
+          </PackBox>
+
+          <PackBox title="Pack Annuel">
+            <NumberField label="Prix annuel MAD" value={packForm.yearly_price_mad} onChange={(value) => setPackForm({ ...packForm, yearly_price_mad: value })} />
+            <NumberField label="Tokens annuels" value={packForm.yearly_tokens} onChange={(value) => setPackForm({ ...packForm, yearly_tokens: value })} />
+            <ReadOnly label="Duree" value="365 jours" />
+          </PackBox>
         </div>
         <button type="button" disabled={saving === 'pack'} onClick={savePackSettings} className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-[#008f45] px-5 py-3 text-sm font-black text-white disabled:opacity-60">
           <Save className="h-4 w-4" aria-hidden="true" />
@@ -131,7 +143,46 @@ function NumberField({ label, value = 0, onChange }) {
   return (
     <label className="block">
       <span className="text-sm font-bold text-slate-700">{label}</span>
-      <input type="number" min="0" className="field-control mt-2" value={value ?? 0} onChange={(event) => onChange(Number(event.target.value))} />
+      <input type="number" min="0" className="field-control mt-2" value={value ?? 0} onChange={(event) => onChange(event.target.value)} />
     </label>
   );
+}
+
+function PackBox({ title, children }) {
+  return (
+    <section className="rounded-[1.25rem] border border-[#dfe8df] bg-[#f7f8f6] p-4">
+      <h3 className="text-sm font-black uppercase tracking-[0.12em] text-[#008f45]">{title}</h3>
+      <div className="mt-4 grid gap-4">{children}</div>
+    </section>
+  );
+}
+
+function ReadOnly({ label, value }) {
+  return (
+    <div>
+      <span className="text-sm font-bold text-slate-700">{label}</span>
+      <p className="mt-2 rounded-2xl border border-[#dfe8df] bg-white px-4 py-3 text-sm font-black text-[#1d252b]">{value}</p>
+    </div>
+  );
+}
+
+function parsePackForm(form) {
+  const payload = {
+    free_tokens: Number(form.free_tokens),
+    free_reset_hours: Number(form.free_reset_hours),
+    monthly_tokens: Number(form.monthly_tokens),
+    yearly_tokens: Number(form.yearly_tokens),
+    monthly_price_mad: Number(form.monthly_price_mad),
+    yearly_price_mad: Number(form.yearly_price_mad),
+  };
+
+  if (Object.values(payload).some((value) => Number.isNaN(value))) {
+    throw new Error('Tous les champs des packs doivent etre numeriques.');
+  }
+
+  if (![5, 24, 168].includes(payload.free_reset_hours)) {
+    throw new Error('La reinitialisation gratuite doit etre 5h, 24h ou 7 jours.');
+  }
+
+  return payload;
 }

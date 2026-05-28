@@ -2,7 +2,7 @@ import { AlertTriangle, CheckCircle2, Keyboard, ScanLine, ShieldCheck } from 'lu
 import { useEffect, useMemo, useState } from 'react';
 import { fullAnalysis } from '../lib/api.js';
 import { extractTextWithEasyOCR } from '../lib/ocrApi.js';
-import { assertCanAnalyze, consumeAnalysisToken, formatTokenReset, getTokenSnapshot } from '../lib/packUsage.js';
+import { assertCanAnalyze, formatTokenReset, getTokenSnapshot } from '../lib/packUsage.js';
 import { logCompletedScan } from '../lib/scanStats.js';
 import CameraCapture from './CameraCapture.jsx';
 import ExtractedTextEditor from './ExtractedTextEditor.jsx';
@@ -143,7 +143,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
       await assertCanAnalyze();
       const result = await fullAnalysis(text);
       const savedAnalysis = await logCompletedScan({ result, text, inputType: method, productName, imageFile: file });
-      setTokenInfo(await consumeAnalysisToken());
+      setTokenInfo(await getTokenSnapshot());
       if (savedAnalysis?.imageUploadWarning) setSaveWarning(savedAnalysis.imageUploadWarning);
       saveChatbotScanContext(result, text);
       onResult({
@@ -316,15 +316,12 @@ function MiniMetric({ icon: Icon, label, value }) {
 function TokenBadge({ tokenInfo }) {
   const isPaid = tokenInfo.packStatus === 'active' && tokenInfo.packType !== 'none';
   const packLabel = tokenInfo.packType === 'yearly' ? 'Pack Annuel' : 'Pack Mensuel';
+  const freeLabel = `Pack Gratuit - Tokens restants : ${tokenInfo.remaining}/${tokenInfo.limit} - Reset ${formatTokenReset(tokenInfo.periodEnd)}`;
+  const paidLabel = `${packLabel} actif - Tokens restants : ${tokenInfo.remaining}/${tokenInfo.limit} - Jusqu'au ${formatDate(tokenInfo.periodEnd)}`;
 
   return (
     <div className="mb-5 inline-flex flex-wrap items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-900">
-      <span>Tokens restants : {tokenInfo.remaining}</span>
-      {isPaid ? (
-        <span>{packLabel} actif jusqu'au {formatDate(tokenInfo.periodEnd)}</span>
-      ) : (
-        <span>Reinitialisation : {formatTokenReset(tokenInfo.periodEnd)}</span>
-      )}
+      <span>{isPaid ? paidLabel : freeLabel}</span>
     </div>
   );
 }

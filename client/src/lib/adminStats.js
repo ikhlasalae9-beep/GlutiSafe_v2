@@ -138,12 +138,69 @@ export async function deleteAdminUser(userId, { deleteAnalyses = false } = {}) {
 
 export async function runAdminPaymentAction(paymentId, action) {
   const client = requireSupabaseClient();
-  const functionName = action === 'confirm' ? 'confirm_payment_request' : action === 'reject' ? 'reject_payment_request' : '';
-  if (!functionName) throw new Error('Action paiement inconnue.');
+  const payment = await readPaymentRequest(client, paymentId);
+  if (!payment) throw new Error('Demande de paiement introuvable.');
 
-  const { data, error } = await client.rpc(functionName, { request_id: paymentId });
-  if (error) throw new Error(error.message || 'Action paiement impossible.');
-  return data;
+  if (action === 'confirm') {
+    const { data: authData } = await client.auth.getUser();
+    const adminId = authData.user?.id || null;
+    const now = new Date();
+    const end = new Date(now);
+    end.setDate(end.getDate() + (payment.pack_type === 'yearly' ? 365 : 30));
+
+    const { error: paymentError } = await client
+      .from('payment_requests')
+      .update({ status: 'confirmed', confirmed_by: adminId, confirmed_at: now.toISOString() })
+      .eq('id', paymentId);
+    if (paymentError) throw new Error(paymentError.message || 'Confirmation paiement impossible.');
+
+    const { error: profileError } = await client
+      .from('profiles')
+      .update({
+        pack_status: 'active',
+        pack_type: payment.pack_type,
+        pack_start_at: now.toISOString(),
+        pack_end_at: end.toISOString(),
+      })
+      .eq('id', payment.user_id);
+    if (profileError) throw new Error(profileError.message || 'Activation pack impossible.');
+
+    await client.from('subscriptions').insert({
+      user_id: payment.user_id,
+      status: 'active',
+      pack_name: payment.pack_type,
+      start_date: now.toISOString(),
+      end_date: end.toISOString(),
+      activated_by: adminId,
+    });
+
+    return { confirmed: true };
+  }
+
+  if (action === 'reject') {
+    const nowIso = new Date().toISOString();
+    const { error: paymentError } = await client.from('payment_requests').update({ status: 'rejected', rejected_at: nowIso }).eq('id', paymentId);
+    if (paymentError) throw new Error(paymentError.message || 'Rejet paiement impossible.');
+
+    const { data: activeProfile } = await client
+      .from('profiles')
+      .select('id')
+      .eq('id', payment.user_id)
+      .eq('pack_status', 'active')
+      .gt('pack_end_at', nowIso)
+      .maybeSingle();
+
+    if (!activeProfile) {
+      await client
+        .from('profiles')
+        .update({ pack_status: 'free', pack_type: 'none', pack_start_at: null, pack_end_at: null })
+        .eq('id', payment.user_id);
+    }
+
+    return { rejected: true };
+  }
+
+  throw new Error('Action paiement inconnue.');
 }
 
 export async function fetchAdminStats() {
@@ -192,6 +249,12 @@ async function fetchOptionalPaymentRequests(client) {
   }
 
   return result;
+}
+
+async function readPaymentRequest(client, paymentId) {
+  const { data, error } = await client.from('payment_requests').select('*').eq('id', paymentId).maybeSingle();
+  if (error) throw new Error(error.message || 'Demande de paiement introuvable.');
+  return data;
 }
 
 function normalizeAdminUser(profile = {}) {

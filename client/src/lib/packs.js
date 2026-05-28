@@ -161,14 +161,14 @@ export function describeCurrentPack(profile = {}) {
 
 export async function getPackSettings() {
   const client = requireSupabaseClient();
-  const { data, error } = await client.from('pack_settings').select('*').eq('id', true).maybeSingle();
+  const { data, error } = await client.from('pack_settings').select('*').limit(1).maybeSingle();
   if (error) return DEFAULT_PACK_SETTINGS;
   return normalizePackSettings(data);
 }
 
 export async function getPaymentSettings() {
   const client = requireSupabaseClient();
-  const { data, error } = await client.from('payment_settings').select('*').eq('id', true).maybeSingle();
+  const { data, error } = await client.from('payment_settings').select('*').limit(1).maybeSingle();
   if (error) return DEFAULT_PAYMENT_SETTINGS;
   return { ...DEFAULT_PAYMENT_SETTINGS, ...(data || {}) };
 }
@@ -176,7 +176,11 @@ export async function getPaymentSettings() {
 export async function updatePackSettings(settings) {
   const client = requireSupabaseClient();
   const payload = normalizePackSettings(settings);
-  const { data, error } = await client.from('pack_settings').upsert({ id: true, ...payload }).select('*').single();
+  const existing = await client.from('pack_settings').select('id').limit(1).maybeSingle();
+  const query = existing.data?.id !== undefined
+    ? client.from('pack_settings').update(payload).eq('id', existing.data.id)
+    : client.from('pack_settings').insert(payload);
+  const { data, error } = await query.select('*').single();
   if (error) throw new Error(error.message || 'Impossible de sauvegarder les packs.');
   return normalizePackSettings(data);
 }
@@ -184,7 +188,11 @@ export async function updatePackSettings(settings) {
 export async function updatePaymentSettings(settings) {
   const client = requireSupabaseClient();
   const payload = { ...DEFAULT_PAYMENT_SETTINGS, ...settings };
-  const { data, error } = await client.from('payment_settings').upsert({ id: true, ...payload }).select('*').single();
+  const existing = await client.from('payment_settings').select('id').limit(1).maybeSingle();
+  const query = existing.data?.id !== undefined
+    ? client.from('payment_settings').update(payload).eq('id', existing.data.id)
+    : client.from('payment_settings').insert(payload);
+  const { data, error } = await query.select('*').single();
   if (error) throw new Error(error.message || 'Impossible de sauvegarder les parametres de paiement.');
   return { ...DEFAULT_PAYMENT_SETTINGS, ...data };
 }

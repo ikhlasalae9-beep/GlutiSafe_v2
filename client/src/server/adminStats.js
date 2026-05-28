@@ -79,6 +79,42 @@ export async function createManualPackRequest({ requesterToken, packType }) {
 
 export async function assertCanUserAnalyze({ requesterToken }) {
   const config = requireSupabaseConfig();
+  {
+    const user = await requireAuthenticatedUser(config, requesterToken);
+    const profile = await readProfile(config, user.id);
+    const settings = await readPackSettings(config);
+
+    if (!profile) {
+      const error = new Error('Profil introuvable.');
+      error.status = 404;
+      throw error;
+    }
+
+    const effective = effectivePack(profile);
+    if (effective.status === 'blocked') {
+      const error = new Error("Votre compte est bloque. Contactez l'administration.");
+      error.status = 403;
+      throw error;
+    }
+
+    const freeResetHours = [5, 24, 168].includes(Number(settings.free_reset_hours)) ? Number(settings.free_reset_hours) : 24;
+    const isPaid = effective.status === 'active' && ['monthly', 'yearly'].includes(effective.type) && effective.endAt && new Date(effective.endAt).getTime() > Date.now();
+    const limit = isPaid
+      ? effective.type === 'yearly'
+        ? Number(settings.yearly_tokens || 1500)
+        : Number(settings.monthly_tokens || 100)
+      : Number(settings.free_tokens || 5);
+    const startIso = isPaid && effective.startAt ? new Date(effective.startAt).toISOString() : new Date(Date.now() - freeResetHours * 60 * 60 * 1000).toISOString();
+    const count = await countUserAnalyses(config, user.id, startIso, isPaid ? effective.endAt : null);
+
+    if (count >= limit) {
+      const error = new Error('Vous avez utilise tous vos tokens. Reessayez apres la reinitialisation ou passez a un pack premium.');
+      error.status = 429;
+      throw error;
+    }
+
+    return { allowed: true, used: count, remaining: limit - count, limit };
+  }
   const user = await requireAuthenticatedUser(config, requesterToken);
   const profile = await readProfile(config, user.id);
 
@@ -383,6 +419,20 @@ async function readProfile(config, userId) {
   return Array.isArray(rows) ? rows[0] : null;
 }
 
+async function readPackSettings(config) {
+  const rows = await supabaseRequest(config, 'pack_settings', {
+    method: 'GET',
+    query: { select: '*', limit: '1' },
+  }).catch(() => []);
+  const settings = Array.isArray(rows) ? rows[0] || {} : {};
+  return {
+    free_tokens: Number(settings.free_tokens || 5),
+    free_reset_hours: Number(settings.free_reset_hours || 24),
+    monthly_tokens: Number(settings.monthly_tokens || 100),
+    yearly_tokens: Number(settings.yearly_tokens || 1500),
+  };
+}
+
 async function updateProfile(config, userId, body) {
   const rows = await supabaseRequest(config, 'profiles', {
     method: 'PATCH',
@@ -450,8 +500,9 @@ async function readSupabaseCount(config, table) {
   return parseContentRangeCount(response.headers.get('content-range'));
 }
 
-async function countUserAnalyses(config, userId, startIso) {
-  const response = await fetch(buildSupabaseUrl(config, 'analyses', { select: 'id', user_id: `eq.${userId}`, created_at: `gte.${startIso}` }), {
+async function countUserAnalyses(config, userId, startIso, endIso) {
+  const query = { select: 'id', user_id: `eq.${userId}`, created_at: `gte.${startIso}` };
+  const response = await fetch(buildSupabaseUrl(config, 'analyses', query), {
     method: 'GET',
     headers: supabaseHeaders(config, { Prefer: 'count=exact', Range: '0-0' }),
   });
