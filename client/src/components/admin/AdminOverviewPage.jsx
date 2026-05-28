@@ -12,6 +12,10 @@ export default function AdminOverviewPage({ dashboard }) {
     <div className="space-y-5">
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <AdminStatCard icon={UserRound} label="Total utilisateurs" value={dashboard.usersCount} />
+        <AdminStatCard icon={UserRound} label="Utilisateurs Free" value={dashboard.freeUsersCount} />
+        <AdminStatCard icon={Crown} label="Demandes en attente" value={dashboard.pendingPaymentRequestsCount} />
+        <AdminStatCard icon={Crown} label="Packs mensuels actifs" value={dashboard.activeMonthlyCount} />
+        <AdminStatCard icon={Crown} label="Packs annuels actifs" value={dashboard.activeYearlyCount} />
         <AdminStatCard icon={ScanLine} label="Total scans" value={dashboard.scansCount} />
         <AdminStatCard icon={AlertTriangle} label="Scans avec gluten" value={stats.glutenCount} tone="red" />
         <AdminStatCard icon={CheckCircle2} label="Scans sans gluten détecté" value={stats.noGlutenCount} tone="green" />

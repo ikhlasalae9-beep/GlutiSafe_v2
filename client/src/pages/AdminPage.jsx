@@ -114,7 +114,7 @@ export default function AdminPage() {
           />
         );
       case 'settings':
-        return <AdminSettingsPage dashboard={dashboard} />;
+        return <AdminSettingsPage dashboard={dashboard} onSaved={loadDashboard} />;
       case 'overview':
       default:
         return <AdminOverviewPage dashboard={dashboard} />;

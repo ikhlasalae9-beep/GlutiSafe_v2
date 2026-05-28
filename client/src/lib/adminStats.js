@@ -1,13 +1,23 @@
 import { API_URL } from '../config/api.js';
 import { cleanSupabaseError, getCurrentProfile } from './auth.js';
-import { describeCurrentPack, getEffectivePackStatus, getPackDisplayName, getPackStatusLabel, getPackTypeLabel, normalizePackStatus, normalizePackType } from './packs.js';
+import {
+  describeCurrentPack,
+  getEffectivePackStatus,
+  getPackDisplayName,
+  getPackSettings,
+  getPackStatusLabel,
+  getPackTypeLabel,
+  getPaymentSettings,
+  normalizePackStatus,
+  normalizePackType,
+} from './packs.js';
 import { SUPABASE_URL, isSupabaseConfigured, requireSupabaseClient } from './supabaseClient.js';
 
 const DASHBOARD_LIMITS = {
   users: 500,
   analyses: 1000,
   subscriptions: 500,
-  payments: 500,
+  paymentRequests: 500,
 };
 
 export async function fetchAdminDashboard() {
@@ -18,7 +28,7 @@ export async function fetchAdminDashboard() {
     throw new Error("Accès refusé. Ce compte n'est pas administrateur.");
   }
 
-  const [profilesResult, analysesResult, subscriptionsResult, paymentsResult] = await Promise.all([
+  const [profilesResult, analysesResult, subscriptionsResult, paymentRequestsResult, packSettings, paymentSettings] = await Promise.all([
     client
       .from('profiles')
       .select('id, full_name, email, role, pack_status, pack_type, pack_start_at, pack_end_at, created_at')
@@ -32,7 +42,9 @@ export async function fetchAdminDashboard() {
       .order('created_at', { ascending: false })
       .limit(DASHBOARD_LIMITS.analyses),
     fetchOptionalSubscriptions(client),
-    fetchOptionalPayments(client),
+    fetchOptionalPaymentRequests(client),
+    getPackSettings(),
+    getPaymentSettings(),
   ]);
 
   const firstError = [profilesResult, analysesResult].find((result) => result.error)?.error;
@@ -44,9 +56,13 @@ export async function fetchAdminDashboard() {
   const userById = new Map(users.map((user) => [user.id, user]));
   const analyses = (analysesResult.data || []).map((analysis) => normalizeAdminAnalysis(analysis, userById));
   const subscriptions = (subscriptionsResult.data || []).map((subscription) => normalizeSubscription(subscription, userById));
-  const payments = (paymentsResult.data || []).map((payment) => normalizePayment(payment, userById));
+  const payments = (paymentRequestsResult.data || []).map((payment) => normalizePaymentRequest(payment, userById));
   const mainAdmin = users.find((user) => user.role === 'admin');
   const scanStats = buildScanStats(analyses);
+  const activeMonthlyCount = users.filter((user) => user.packStatus === 'active' && user.packType === 'monthly').length;
+  const activeYearlyCount = users.filter((user) => user.packStatus === 'active' && user.packType === 'yearly').length;
+  const freeUsersCount = users.filter((user) => user.packStatus === 'free' || user.packStatus === 'expired').length;
+  const pendingPaymentRequestsCount = payments.filter((payment) => payment.status === 'pending').length;
 
   return {
     admin: profile,
@@ -54,7 +70,13 @@ export async function fetchAdminDashboard() {
     analyses,
     subscriptions,
     payments,
+    packSettings,
+    paymentSettings,
     usersCount: users.length,
+    freeUsersCount,
+    pendingPaymentRequestsCount,
+    activeMonthlyCount,
+    activeYearlyCount,
     scansCount: analyses.length,
     platformStatus: 'Active',
     mainAdmin: mainAdmin?.name || mainAdmin?.email || 'Admin',
@@ -116,22 +138,12 @@ export async function deleteAdminUser(userId, { deleteAnalyses = false } = {}) {
 
 export async function runAdminPaymentAction(paymentId, action) {
   const client = requireSupabaseClient();
-  const { data } = await client.auth.getSession();
-  const token = data.session?.access_token;
+  const functionName = action === 'confirm' ? 'confirm_payment_request' : action === 'reject' ? 'reject_payment_request' : '';
+  if (!functionName) throw new Error('Action paiement inconnue.');
 
-  if (!token) {
-    throw new Error('Session admin introuvable.');
-  }
-
-  const response = await fetch(`${API_URL}/api/admin/payments/${paymentId}/${action}`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  return readAdminActionResponse(response);
+  const { data, error } = await client.rpc(functionName, { request_id: paymentId });
+  if (error) throw new Error(error.message || 'Action paiement impossible.');
+  return data;
 }
 
 export async function fetchAdminStats() {
@@ -168,12 +180,12 @@ async function fetchOptionalSubscriptions(client) {
   return result;
 }
 
-async function fetchOptionalPayments(client) {
+async function fetchOptionalPaymentRequests(client) {
   const result = await client
-    .from('payments')
-    .select('id, user_id, provider, provider_payment_id, pack_type, amount, currency, status, method, proof_url, created_at, updated_at')
+    .from('payment_requests')
+    .select('id, user_id, pack_type, payment_method, amount, status, user_note, confirmed_by, confirmed_at, rejected_at, created_at, updated_at')
     .order('created_at', { ascending: false })
-    .limit(DASHBOARD_LIMITS.payments);
+    .limit(DASHBOARD_LIMITS.paymentRequests);
 
   if (result.error) {
     return { data: [], error: null, unavailable: true };
@@ -244,22 +256,26 @@ function normalizeSubscription(subscription = {}, userById = new Map()) {
   };
 }
 
-function normalizePayment(payment = {}, userById = new Map()) {
+function normalizePaymentRequest(payment = {}, userById = new Map()) {
   const user = userById.get(payment.user_id);
-  const packType = normalizePackType(payment.pack_type || String(payment.proof_url || '').replace(/^pack:/, ''));
+  const packType = normalizePackType(payment.pack_type);
 
   return {
     id: payment.id,
     userId: payment.user_id,
     userName: user?.name || 'Utilisateur',
     userEmail: user?.email || '',
-    provider: payment.provider || payment.method || 'manual',
-    providerPaymentId: payment.provider_payment_id || '',
+    provider: payment.payment_method || 'manual',
+    paymentMethod: payment.payment_method || 'manual',
     packType,
     packLabel: getPackTypeLabel(packType, 'active'),
     amount: payment.amount ?? null,
-    currency: payment.currency || 'MAD',
+    currency: 'MAD',
     status: payment.status || 'pending',
+    userNote: payment.user_note || '',
+    confirmedBy: payment.confirmed_by || null,
+    confirmedAt: payment.confirmed_at || null,
+    rejectedAt: payment.rejected_at || null,
     createdAt: payment.created_at || null,
     updatedAt: payment.updated_at || null,
   };

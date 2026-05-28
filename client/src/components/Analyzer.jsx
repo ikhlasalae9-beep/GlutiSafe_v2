@@ -1,8 +1,8 @@
 import { AlertTriangle, CheckCircle2, Keyboard, ScanLine, ShieldCheck } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { fullAnalysis } from '../lib/api.js';
 import { extractTextWithEasyOCR } from '../lib/ocrApi.js';
-import { assertCanAnalyze } from '../lib/packUsage.js';
+import { assertCanAnalyze, consumeAnalysisToken, formatTokenReset, getTokenSnapshot } from '../lib/packUsage.js';
 import { logCompletedScan } from '../lib/scanStats.js';
 import CameraCapture from './CameraCapture.jsx';
 import ExtractedTextEditor from './ExtractedTextEditor.jsx';
@@ -30,8 +30,22 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
   const [saveWarning, setSaveWarning] = useState('');
   const [saved, setSaved] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [tokenInfo, setTokenInfo] = useState(null);
 
   const isImageMode = useMemo(() => method === 'upload' || method === 'camera', [method]);
+
+  useEffect(() => {
+    let active = true;
+    getTokenSnapshot()
+      .then((snapshot) => {
+        if (active) setTokenInfo(snapshot);
+      })
+      .catch(() => {});
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   function resetAll() {
     setFile(null);
@@ -129,6 +143,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
       await assertCanAnalyze();
       const result = await fullAnalysis(text);
       const savedAnalysis = await logCompletedScan({ result, text, inputType: method, productName, imageFile: file });
+      setTokenInfo(await consumeAnalysisToken());
       if (savedAnalysis?.imageUploadWarning) setSaveWarning(savedAnalysis.imageUploadWarning);
       saveChatbotScanContext(result, text);
       onResult({
@@ -168,6 +183,8 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
           <MiniMetric icon={CheckCircle2} label="Langues" value="FR EN ES" />
         </div>
       </div>
+
+      {tokenInfo ? <TokenBadge tokenInfo={tokenInfo} /> : null}
 
       <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
         <div className="surface-card organic-panel p-5 sm:p-6">
@@ -294,6 +311,28 @@ function MiniMetric({ icon: Icon, label, value }) {
       <p className="mt-1 truncate text-sm font-bold text-[#1d252b]">{value}</p>
     </div>
   );
+}
+
+function TokenBadge({ tokenInfo }) {
+  const isPaid = tokenInfo.packStatus === 'active' && tokenInfo.packType !== 'none';
+  const packLabel = tokenInfo.packType === 'yearly' ? 'Pack Annuel' : 'Pack Mensuel';
+
+  return (
+    <div className="mb-5 inline-flex flex-wrap items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-900">
+      <span>Tokens restants : {tokenInfo.remaining}</span>
+      {isPaid ? (
+        <span>{packLabel} actif jusqu'au {formatDate(tokenInfo.periodEnd)}</span>
+      ) : (
+        <span>Reinitialisation : {formatTokenReset(tokenInfo.periodEnd)}</span>
+      )}
+    </div>
+  );
+}
+
+function formatDate(value) {
+  if (!value) return '-';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString('fr-FR');
 }
 
 function fileToDataUrl(file) {

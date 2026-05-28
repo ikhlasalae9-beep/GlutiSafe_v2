@@ -90,18 +90,6 @@ export default async function handler(req, res) {
       return sendAdminResult(res, blockUser({ requesterToken: readBearerToken(req), userId: body.userId }));
     }
 
-    if (req.method === 'POST' && pathname === '/api/paypal/create-order') {
-      return handlePaypalPlaceholder(res, 'PAYPAL_CREATE_ORDER_NOT_CONFIGURED');
-    }
-
-    if (req.method === 'POST' && pathname === '/api/paypal/capture-order') {
-      return handlePaypalPlaceholder(res, 'PAYPAL_CAPTURE_ORDER_NOT_CONFIGURED');
-    }
-
-    if (req.method === 'POST' && pathname === '/api/paypal/webhook') {
-      return res.status(200).json({ received: true, configured: false });
-    }
-
     return res.status(404).json({ error: 'API_ROUTE_NOT_FOUND', message: `Route ${pathname} introuvable.` });
   } catch (error) {
     console.error('[vercel-api] request failed', { pathname, method: req.method, message: error.message });
@@ -277,13 +265,6 @@ async function sendApiResult(res, promise) {
       message: error.message || 'Action impossible.',
     });
   }
-}
-
-function handlePaypalPlaceholder(res, code) {
-  return res.status(501).json({
-    error: code,
-    message: "PayPal est préparé, mais l'intégration serveur n'est pas encore configurée.",
-  });
 }
 
 async function extractTextWithOcrSpace(base64Image) {

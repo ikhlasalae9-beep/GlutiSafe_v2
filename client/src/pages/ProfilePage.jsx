@@ -4,11 +4,15 @@ import { useNavigate } from 'react-router-dom';
 import Button from '../components/Button.jsx';
 import { getCurrentProfile, signOut } from '../lib/auth.js';
 import { getHistory, isAlertHistoryItem, isSafeHistoryItem } from '../lib/history.js';
+import { getMyPaymentRequests } from '../lib/payments.js';
+import { formatTokenReset, getTokenSnapshot } from '../lib/packUsage.js';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [history, setHistory] = useState([]);
+  const [tokenInfo, setTokenInfo] = useState(null);
+  const [pendingRequest, setPendingRequest] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -20,10 +24,12 @@ export default function ProfilePage() {
         return;
       }
 
-      const rows = await getHistory();
+      const [rows, snapshot, requests] = await Promise.all([getHistory(), getTokenSnapshot(currentUser), getMyPaymentRequests()]);
       if (!active) return;
       setUser(currentUser);
       setHistory(rows);
+      setTokenInfo(snapshot);
+      setPendingRequest(requests.find((request) => request.status === 'pending') || null);
     }
 
     loadProfile().catch(() => {
@@ -92,6 +98,9 @@ export default function ProfilePage() {
               <Field label="Pack" value={user.packDescription || user.packDisplayName || 'Pack Gratuit'} />
               <Field label="Statut" value={user.packStatusLabel || 'Gratuit'} />
               <Field label="Fin du pack" value={formatDate(user.packEndAt)} />
+              <Field label="Tokens restants" value={tokenInfo ? `${tokenInfo.remaining}` : '-'} />
+              <Field label="Reinitialisation" value={tokenInfo?.packStatus === 'active' ? formatDate(tokenInfo.periodEnd) : formatTokenReset(tokenInfo?.periodEnd)} />
+              <Field label="Demande en attente" value={pendingRequest ? `${pendingRequest.pack_type} - ${pendingRequest.payment_method}` : '-'} />
             </div>
           </Panel>
 

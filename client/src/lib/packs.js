@@ -1,16 +1,36 @@
+import { requireSupabaseClient } from './supabaseClient.js';
+
+export const DEFAULT_PACK_SETTINGS = {
+  free_tokens: 5,
+  free_reset_hours: 24,
+  monthly_tokens: 100,
+  yearly_tokens: 1500,
+  monthly_price_mad: 29,
+  yearly_price_mad: 249,
+};
+
+export const DEFAULT_PAYMENT_SETTINGS = {
+  rib_holder: '',
+  bank_name: '',
+  rib_number: '',
+  cashplus_full_name: '',
+  cashplus_phone: '',
+  cashplus_city: '',
+  payment_note: '',
+};
+
 export const PACKS = [
   {
     id: 'free',
     packType: 'none',
     title: 'Gratuit',
-    displayName: 'Pack Free',
+    displayName: 'Pack Gratuit',
     badge: 'Gratuit',
-    price: '0 DH',
+    priceKey: null,
     cadence: '',
-    paypalAmount: null,
-    scans: '5 scans / mois',
-    features: ['5 scans / mois', 'Historique limité', 'OCR de base', 'Détection gluten'],
-    cta: 'Commencer gratuitement',
+    scansKey: 'free_tokens',
+    features: ['Tokens gratuits renouvelables', 'Historique limite aux 3 dernieres analyses', 'OCR de base', 'Detection gluten'],
+    cta: 'Pack actuel',
   },
   {
     id: 'monthly',
@@ -18,12 +38,11 @@ export const PACKS = [
     title: 'Mensuel',
     displayName: 'Pack Mensuel',
     badge: 'Premium',
-    price: '29 DH',
-    cadence: '/ mois',
-    paypalAmount: '2.99 USD',
-    scans: '100 scans / mois',
-    features: ['100 scans / mois', 'Historique complet', 'Explication IA', "Images produits dans l’historique"],
-    cta: 'Choisir Mensuel',
+    priceKey: 'monthly_price_mad',
+    cadence: '/ 30 jours',
+    scansKey: 'monthly_tokens',
+    features: ['Tokens premium sur 30 jours', 'Historique complet', 'Explication IA', 'Activation apres verification admin'],
+    cta: 'Demander ce pack',
   },
   {
     id: 'yearly',
@@ -31,26 +50,18 @@ export const PACKS = [
     title: 'Annuel',
     displayName: 'Pack Annuel',
     badge: 'Meilleur choix',
-    price: '249 DH',
-    cadence: '/ an',
-    paypalAmount: '24.99 USD',
-    scans: '1500 scans / an',
-    features: ['1500 scans / an', 'Historique complet', 'Explication IA', 'Meilleur choix'],
-    cta: 'Choisir Annuel',
+    priceKey: 'yearly_price_mad',
+    cadence: '/ 365 jours',
+    scansKey: 'yearly_tokens',
+    features: ['Tokens premium sur 365 jours', 'Historique complet', 'Explication IA', 'Meilleur choix'],
+    cta: 'Demander ce pack',
     highlighted: true,
   },
 ];
 
-export const PACK_LIMITS = {
-  free: { scans: 5, period: 'month', history: 3, premium: false },
-  monthly: { scans: 100, period: 'month', history: Infinity, premium: true },
-  yearly: { scans: 1500, period: 'year', history: Infinity, premium: true },
-};
-
 export const PAYMENT_METHODS = [
-  { id: 'paypal', label: 'Payer avec PayPal' },
-  { id: 'cmi', label: 'Payer par carte bancaire CMI' },
-  { id: 'manual', label: 'Paiement manuel' },
+  { id: 'rib', label: 'Paiement par RIB' },
+  { id: 'cashplus', label: 'Paiement par CashPlus' },
 ];
 
 export function normalizePackStatus(value) {
@@ -106,8 +117,10 @@ export function getPackTypeLabel(packType, packStatus = 'free') {
   return getPackByType(type).title;
 }
 
-export function getPackAmountDh(packType) {
-  return packType === 'yearly' ? 249 : packType === 'monthly' ? 29 : 0;
+export function getPackAmountDh(packType, settings = DEFAULT_PACK_SETTINGS) {
+  if (packType === 'yearly') return Number(settings.yearly_price_mad ?? DEFAULT_PACK_SETTINGS.yearly_price_mad);
+  if (packType === 'monthly') return Number(settings.monthly_price_mad ?? DEFAULT_PACK_SETTINGS.monthly_price_mad);
+  return 0;
 }
 
 export function getEffectivePackStatus(profile = {}) {
@@ -122,30 +135,14 @@ export function getEffectivePackStatus(profile = {}) {
   return status;
 }
 
-export function getPackLimit(profile = {}) {
+export function getPackLimit(profile = {}, settings = DEFAULT_PACK_SETTINGS) {
   const status = getEffectivePackStatus(profile);
   const type = normalizePackType(profile.packType || profile.pack_type);
 
-  if (status === 'blocked') return { blocked: true, message: 'Votre compte est bloqué. Contactez l’administration.' };
-  if (status !== 'active') return PACK_LIMITS.free;
-  return PACK_LIMITS[type] || PACK_LIMITS.free;
-}
-
-export function getPackPeriodStart(profile = {}, now = new Date()) {
-  const status = getEffectivePackStatus(profile);
-  const type = normalizePackType(profile.packType || profile.pack_type);
-  const startAt = profile.packStartAt || profile.pack_start_at;
-
-  if (status === 'active' && startAt) {
-    const start = new Date(startAt);
-    if (!Number.isNaN(start.getTime())) return start.toISOString();
-  }
-
-  if (status === 'active' && type === 'yearly') {
-    return new Date(Date.UTC(now.getUTCFullYear(), 0, 1)).toISOString();
-  }
-
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+  if (status === 'blocked') return { blocked: true, message: "Votre compte est bloque. Contactez l'administration." };
+  if (status === 'active' && type === 'monthly') return { scans: Number(settings.monthly_tokens || 100), history: Infinity, premium: true };
+  if (status === 'active' && type === 'yearly') return { scans: Number(settings.yearly_tokens || 1500), history: Infinity, premium: true };
+  return { scans: Number(settings.free_tokens || 5), history: 3, premium: false };
 }
 
 export function describeCurrentPack(profile = {}) {
@@ -154,12 +151,76 @@ export function describeCurrentPack(profile = {}) {
   const endAt = profile.packEndAt || profile.pack_end_at;
   const endLabel = formatDate(endAt);
 
-  if (status === 'blocked') return 'Compte bloqué';
+  if (status === 'blocked') return 'Compte bloque';
   if (status === 'pending') return 'Demande en attente';
-  if (status === 'expired') return 'Pack expiré';
-  if (status === 'active' && type === 'monthly') return `Pack Mensuel actif jusqu’au ${endLabel}`;
-  if (status === 'active' && type === 'yearly') return `Pack Annuel actif jusqu’au ${endLabel}`;
+  if (status === 'expired') return 'Pack expire';
+  if (status === 'active' && type === 'monthly') return `Pack Mensuel actif jusqu'au ${endLabel}`;
+  if (status === 'active' && type === 'yearly') return `Pack Annuel actif jusqu'au ${endLabel}`;
   return 'Pack Gratuit';
+}
+
+export async function getPackSettings() {
+  const client = requireSupabaseClient();
+  const { data, error } = await client.from('pack_settings').select('*').eq('id', true).maybeSingle();
+  if (error) return DEFAULT_PACK_SETTINGS;
+  return normalizePackSettings(data);
+}
+
+export async function getPaymentSettings() {
+  const client = requireSupabaseClient();
+  const { data, error } = await client.from('payment_settings').select('*').eq('id', true).maybeSingle();
+  if (error) return DEFAULT_PAYMENT_SETTINGS;
+  return { ...DEFAULT_PAYMENT_SETTINGS, ...(data || {}) };
+}
+
+export async function updatePackSettings(settings) {
+  const client = requireSupabaseClient();
+  const payload = normalizePackSettings(settings);
+  const { data, error } = await client.from('pack_settings').upsert({ id: true, ...payload }).select('*').single();
+  if (error) throw new Error(error.message || 'Impossible de sauvegarder les packs.');
+  return normalizePackSettings(data);
+}
+
+export async function updatePaymentSettings(settings) {
+  const client = requireSupabaseClient();
+  const payload = { ...DEFAULT_PAYMENT_SETTINGS, ...settings };
+  const { data, error } = await client.from('payment_settings').upsert({ id: true, ...payload }).select('*').single();
+  if (error) throw new Error(error.message || 'Impossible de sauvegarder les parametres de paiement.');
+  return { ...DEFAULT_PAYMENT_SETTINGS, ...data };
+}
+
+export function normalizePackSettings(settings = {}) {
+  return {
+    free_tokens: numberOrDefault(settings.free_tokens, DEFAULT_PACK_SETTINGS.free_tokens),
+    free_reset_hours: [5, 24, 168].includes(Number(settings.free_reset_hours)) ? Number(settings.free_reset_hours) : 24,
+    monthly_tokens: numberOrDefault(settings.monthly_tokens, DEFAULT_PACK_SETTINGS.monthly_tokens),
+    yearly_tokens: numberOrDefault(settings.yearly_tokens, DEFAULT_PACK_SETTINGS.yearly_tokens),
+    monthly_price_mad: numberOrDefault(settings.monthly_price_mad, DEFAULT_PACK_SETTINGS.monthly_price_mad),
+    yearly_price_mad: numberOrDefault(settings.yearly_price_mad, DEFAULT_PACK_SETTINGS.yearly_price_mad),
+  };
+}
+
+export function formatPackPrice(pack, settings) {
+  const amount = pack.priceKey ? Number(settings?.[pack.priceKey] ?? DEFAULT_PACK_SETTINGS[pack.priceKey]) : 0;
+  return `${amount} DH`;
+}
+
+export function formatPackTokens(pack, settings) {
+  const tokens = Number(settings?.[pack.scansKey] ?? DEFAULT_PACK_SETTINGS[pack.scansKey]);
+  if (pack.id === 'free') return `${tokens} tokens / ${formatResetDuration(settings?.free_reset_hours || 24)}`;
+  return `${tokens} tokens`;
+}
+
+export function formatResetDuration(hours) {
+  const value = Number(hours);
+  if (value === 5) return '5 heures';
+  if (value === 168) return '7 jours';
+  return '24 heures';
+}
+
+function numberOrDefault(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : fallback;
 }
 
 function formatDate(value) {

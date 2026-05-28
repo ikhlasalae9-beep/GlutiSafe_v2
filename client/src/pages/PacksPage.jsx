@@ -1,14 +1,20 @@
-import { Check, CreditCard, Loader2, WalletCards } from 'lucide-react';
+import { Check, Landmark, Loader2, WalletCards } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getCurrentProfile } from '../lib/auth.js';
 import { createManualPackRequest } from '../lib/payments.js';
-import { PACKS, PAYMENT_METHODS, getCurrentPack } from '../lib/packs.js';
+import { getTokenSnapshot, formatTokenReset } from '../lib/packUsage.js';
+import { PACKS, PAYMENT_METHODS, formatPackPrice, formatPackTokens, getCurrentPack, getPackSettings, getPaymentSettings } from '../lib/packs.js';
 
 export default function PacksPage() {
   const [profile, setProfile] = useState(null);
+  const [packSettings, setPackSettings] = useState(null);
+  const [paymentSettings, setPaymentSettings] = useState(null);
+  const [tokenInfo, setTokenInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedPack, setSelectedPack] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState('rib');
+  const [userNote, setUserNote] = useState('');
   const [requesting, setRequesting] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -16,12 +22,19 @@ export default function PacksPage() {
   useEffect(() => {
     let active = true;
 
-    getCurrentProfile()
-      .then((currentProfile) => {
-        if (active) setProfile(currentProfile);
-      })
+    async function load() {
+      const [currentProfile, packs, payments] = await Promise.all([getCurrentProfile(), getPackSettings(), getPaymentSettings()]);
+      const snapshot = currentProfile ? await getTokenSnapshot(currentProfile) : null;
+      if (!active) return;
+      setProfile(currentProfile);
+      setPackSettings(packs);
+      setPaymentSettings(payments);
+      setTokenInfo(snapshot);
+    }
+
+    load()
       .catch((err) => {
-        if (active) setError(err.message || 'Impossible de charger votre pack.');
+        if (active) setError(err.message || 'Impossible de charger vos packs.');
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -34,30 +47,21 @@ export default function PacksPage() {
 
   const currentPack = useMemo(() => getCurrentPack(profile || {}), [profile]);
 
-  const handlePaymentChoice = async (method) => {
+  const handleSubmit = async () => {
     setMessage('');
     setError('');
 
     if (!selectedPack) return;
 
-    if (method === 'paypal') {
-      setMessage('PayPal sera bientôt disponible. Utilisez le paiement manuel pour le moment.');
-      return;
-    }
-
-    if (method === 'cmi') {
-      setMessage('Paiement par carte bancaire CMI: Bientôt disponible.');
-      return;
-    }
-
     try {
       setRequesting(true);
-      await createManualPackRequest({ profile, packType: selectedPack.packType });
-      setMessage('Votre demande de paiement manuel a été envoyée. Un administrateur va la vérifier.');
+      await createManualPackRequest({ profile, packType: selectedPack.packType, paymentMethod, userNote });
+      setMessage('Votre demande a ete envoyee. Un administrateur verifiera le paiement et activera votre pack.');
       setProfile(await getCurrentProfile());
       setSelectedPack(null);
+      setUserNote('');
     } catch (err) {
-      setError(err.message || 'Impossible de créer la demande de paiement manuel.');
+      setError(err.message || 'Impossible de creer la demande de paiement manuel.');
     } finally {
       setRequesting(false);
     }
@@ -75,7 +79,7 @@ export default function PacksPage() {
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight text-[#1d252b]">Choisissez votre pack</h1>
             <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
-              Commencez gratuitement, puis passez à un pack premium quand vous avez besoin de plus d'analyses.
+              Paiement manuel securise par RIB ou CashPlus. Les packs payants sont actives apres verification admin.
             </p>
           </div>
           <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
@@ -107,10 +111,15 @@ export default function PacksPage() {
               <p className="text-sm font-black uppercase tracking-[0.12em] text-[#008f45]">{pack.badge}</p>
               <h2 className="mt-2 text-2xl font-extrabold text-[#1d252b]">{pack.title}</h2>
               <p className="mt-4 text-4xl font-black text-[#1d252b]">
-                {pack.price}
+                {formatPackPrice(pack, packSettings)}
                 {pack.cadence ? <span className="text-base font-bold text-slate-500"> {pack.cadence}</span> : null}
               </p>
-              {pack.paypalAmount ? <p className="mt-2 text-xs font-bold text-slate-500">PayPal plus tard: {pack.paypalAmount}</p> : null}
+              <p className="mt-2 text-sm font-black text-[#008f45]">{formatPackTokens(pack, packSettings)}</p>
+              {pack.id === 'free' && tokenInfo ? (
+                <p className="mt-2 text-xs font-bold text-slate-500">
+                  Restants: {tokenInfo.remaining} - prochaine reinitialisation: {formatTokenReset(tokenInfo.periodEnd)}
+                </p>
+              ) : null}
               <ul className="mt-6 grid gap-3 text-sm font-semibold text-slate-700">
                 {pack.features.map((feature) => (
                   <li key={feature} className="flex items-start gap-2">
@@ -121,25 +130,21 @@ export default function PacksPage() {
               </ul>
               <div className="mt-auto pt-6">
                 {pack.id === 'free' ? (
-                  <Link
-                    to="/analyse"
-                    className={`inline-flex w-full items-center justify-center rounded-2xl px-5 py-3 text-sm font-black transition ${
-                      isCurrent
-                        ? 'border border-[#dfe8df] bg-[#f7f8f6] text-slate-600 hover:border-[#008f45] hover:text-[#008f45]'
-                        : 'bg-[#008f45] text-white hover:bg-[#004b3a]'
-                    }`}
-                  >
-                    {isCurrent ? 'Pack actuel' : 'Demander ce pack'}
+                  <Link to="/analyse" className="inline-flex w-full items-center justify-center rounded-2xl border border-[#dfe8df] bg-[#f7f8f6] px-5 py-3 text-sm font-black text-slate-600 transition hover:border-[#008f45] hover:text-[#008f45]">
+                    Pack actuel
                   </Link>
                 ) : (
                   <button
                     type="button"
-                    disabled={isCurrent}
-                    onClick={() => setSelectedPack(pack)}
+                    disabled={isCurrent || profile?.packStatus === 'pending'}
+                    onClick={() => {
+                      setSelectedPack(pack);
+                      setPaymentMethod('rib');
+                    }}
                     className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#008f45] px-5 py-3 text-sm font-black text-white transition hover:bg-[#004b3a] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
                   >
-                    <CreditCard className="h-4 w-4" aria-hidden="true" />
-                    {isCurrent ? 'Pack actuel' : 'Demander ce pack'}
+                    <Landmark className="h-4 w-4" aria-hidden="true" />
+                    {isCurrent ? 'Pack actuel' : profile?.packStatus === 'pending' ? 'Demande en attente' : 'Demander ce pack'}
                   </button>
                 )}
               </div>
@@ -152,35 +157,78 @@ export default function PacksPage() {
         <section className="mt-6 rounded-[1.5rem] border border-[#dfe8df] bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <p className="brand-kicker">Paiement</p>
+              <p className="brand-kicker">Paiement manuel</p>
               <h2 className="mt-1 text-2xl font-extrabold text-[#1d252b]">{selectedPack.displayName}</h2>
-              <p className="mt-2 text-sm font-semibold text-slate-600">
-                Le pack payant sera activé uniquement après confirmation du paiement.
-              </p>
+              <p className="mt-2 text-sm font-semibold text-slate-600">Choisissez RIB ou CashPlus, puis envoyez votre demande apres paiement.</p>
             </div>
             <button type="button" onClick={() => setSelectedPack(null)} className="text-sm font-black text-slate-500 hover:text-[#008f45]">
               Fermer
             </button>
           </div>
 
-          <div className="mt-5 grid gap-3 md:grid-cols-3">
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
             {PAYMENT_METHODS.map((method) => (
               <button
                 key={method.id}
                 type="button"
                 disabled={requesting}
-                onClick={() => handlePaymentChoice(method.id)}
-                className="rounded-2xl border border-[#dfe8df] bg-[#f7f8f6] p-4 text-left text-sm font-black text-[#1d252b] transition hover:border-[#008f45] hover:text-[#008f45] disabled:opacity-60"
+                onClick={() => setPaymentMethod(method.id)}
+                className={`rounded-2xl border p-4 text-left text-sm font-black transition disabled:opacity-60 ${
+                  paymentMethod === method.id ? 'border-[#008f45] bg-emerald-50 text-[#008f45]' : 'border-[#dfe8df] bg-[#f7f8f6] text-[#1d252b] hover:border-[#008f45]'
+                }`}
               >
-                <span className="flex items-center gap-2">
-                  {requesting && method.id === 'manual' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <CreditCard className="h-4 w-4" aria-hidden="true" />}
-                  {method.label}
-                </span>
+                {method.label}
               </button>
             ))}
           </div>
+
+          <PaymentDetails method={paymentMethod} settings={paymentSettings || {}} />
+
+          <label className="mt-5 block">
+            <span className="text-sm font-bold text-slate-700">Reference du paiement / numero d'operation / remarque</span>
+            <textarea
+              value={userNote}
+              onChange={(event) => setUserNote(event.target.value)}
+              className="mt-2 min-h-28 w-full rounded-2xl border border-[#dfe8df] bg-[#f7f8f6] p-4 text-sm font-semibold outline-none focus:border-[#008f45] focus:ring-4 focus:ring-[#a8cfa5]/30"
+              placeholder="Optionnel"
+            />
+          </label>
+
+          <button type="button" disabled={requesting} onClick={handleSubmit} className="mt-5 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#008f45] px-5 py-3 text-sm font-black text-white transition hover:bg-[#004b3a] disabled:opacity-60">
+            {requesting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Landmark className="h-4 w-4" aria-hidden="true" />}
+            Envoyer ma demande
+          </button>
         </section>
       ) : null}
+    </div>
+  );
+}
+
+function PaymentDetails({ method, settings }) {
+  const rows =
+    method === 'cashplus'
+      ? [
+          ['Nom complet', settings.cashplus_full_name],
+          ['Telephone', settings.cashplus_phone],
+          ['Ville', settings.cashplus_city],
+        ]
+      : [
+          ['Titulaire', settings.rib_holder],
+          ['Banque', settings.bank_name],
+          ['RIB', settings.rib_number],
+        ];
+
+  return (
+    <div className="mt-5 rounded-[1.25rem] border border-[#dfe8df] bg-[#f7f8f6] p-5">
+      <div className="grid gap-3 sm:grid-cols-3">
+        {rows.map(([label, value]) => (
+          <div key={label}>
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">{label}</p>
+            <p className="mt-1 break-words text-sm font-black text-[#1d252b]">{value || '-'}</p>
+          </div>
+        ))}
+      </div>
+      {settings.payment_note ? <p className="mt-4 text-sm font-bold leading-6 text-slate-600">{settings.payment_note}</p> : null}
     </div>
   );
 }

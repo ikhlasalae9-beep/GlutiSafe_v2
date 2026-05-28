@@ -1,8 +1,7 @@
-import { API_URL } from '../config/api.js';
 import { getPackByType } from './packs.js';
 import { requireSupabaseClient } from './supabaseClient.js';
 
-export async function createManualPackRequest({ profile, packType }) {
+export async function createManualPackRequest({ profile, packType, paymentMethod, userNote = '' }) {
   const client = requireSupabaseClient();
   const pack = getPackByType(packType);
 
@@ -14,27 +13,31 @@ export async function createManualPackRequest({ profile, packType }) {
     throw new Error('Pack invalide.');
   }
 
-  const { data } = await client.auth.getSession();
-  const token = data.session?.access_token;
-
-  if (!token) {
-    throw new Error('Connectez-vous pour demander un pack.');
+  if (!['rib', 'cashplus'].includes(paymentMethod)) {
+    throw new Error('Choisissez RIB ou CashPlus.');
   }
 
-  const response = await fetch(`${API_URL}/api/packs/manual-request`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ pack_type: pack.packType }),
+  const { data, error } = await client.rpc('request_manual_pack', {
+    requested_pack_type: pack.packType,
+    requested_payment_method: paymentMethod,
+    requested_user_note: String(userNote || '').trim(),
   });
 
-  const payload = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    throw new Error(payload.message || 'Impossible de créer la demande de paiement.');
+  if (error) {
+    throw new Error(error.message || 'Impossible de creer la demande de paiement.');
   }
 
-  return payload;
+  return data;
+}
+
+export async function getMyPaymentRequests() {
+  const client = requireSupabaseClient();
+  const { data, error } = await client
+    .from('payment_requests')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  if (error) return [];
+  return data || [];
 }

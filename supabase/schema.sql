@@ -57,7 +57,7 @@ create table if not exists public.subscriptions (
 create table if not exists public.payments (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users(id) on delete cascade,
-  provider text default 'manual' check (provider in ('paypal','cmi','manual')),
+  provider text default 'manual' check (provider in ('manual')),
   provider_payment_id text,
   pack_type text check (pack_type in ('monthly','yearly')),
   amount numeric,
@@ -78,7 +78,7 @@ alter table public.payments
   add column if not exists raw_payload jsonb default '{}'::jsonb;
 
 alter table public.payments drop constraint if exists payments_provider_check;
-alter table public.payments add constraint payments_provider_check check (provider in ('paypal','cmi','manual'));
+alter table public.payments add constraint payments_provider_check check (provider in ('manual'));
 alter table public.payments drop constraint if exists payments_pack_type_check;
 alter table public.payments add constraint payments_pack_type_check check (pack_type is null or pack_type in ('monthly','yearly'));
 alter table public.payments drop constraint if exists payments_status_check;

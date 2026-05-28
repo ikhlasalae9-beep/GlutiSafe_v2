@@ -19,7 +19,7 @@ alter table public.payments
   add column if not exists raw_payload jsonb default '{}'::jsonb;
 
 alter table public.payments drop constraint if exists payments_provider_check;
-alter table public.payments add constraint payments_provider_check check (provider in ('paypal','cmi','manual'));
+alter table public.payments add constraint payments_provider_check check (provider in ('manual'));
 
 alter table public.payments drop constraint if exists payments_pack_type_check;
 alter table public.payments add constraint payments_pack_type_check check (pack_type is null or pack_type in ('monthly','yearly'));

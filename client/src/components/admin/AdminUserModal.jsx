@@ -37,12 +37,6 @@ export default function AdminUserModal({ user, scanCount = 0, actionLoading = ''
           <section className="mt-6 rounded-[1.25rem] border border-[#dfe8df] bg-[#f7f8f6] p-4">
             <h3 className="text-sm font-black uppercase tracking-[0.12em] text-slate-500">Actions</h3>
             <div className="mt-4 grid gap-2 sm:grid-cols-2">
-              <Action disabled={isBusy} onClick={() => onAction(user, 'activate-pack', { pack_type: 'monthly' })}>
-                Activer pack mensuel
-              </Action>
-              <Action disabled={isBusy} onClick={() => onAction(user, 'activate-pack', { pack_type: 'yearly' })}>
-                Activer pack annuel
-              </Action>
               <Action disabled={isBusy} onClick={() => onAction(user, 'expire-pack')}>
                 Expirer le pack
               </Action>
