@@ -2,6 +2,7 @@ import { Bell, Mail, Save, ShieldCheck, SlidersHorizontal, UserRound, WalletCard
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../components/Button.jsx';
+import { getMyAiMessageUsage } from '../lib/aiUsage.js';
 import { getCurrentProfile, signOut } from '../lib/auth.js';
 import { getHistory, isAlertHistoryItem, isSafeHistoryItem } from '../lib/history.js';
 import { getMyPaymentRequests } from '../lib/payments.js';
@@ -12,6 +13,7 @@ export default function ProfilePage() {
   const [user, setUser] = useState(null);
   const [history, setHistory] = useState([]);
   const [tokenInfo, setTokenInfo] = useState(null);
+  const [aiUsage, setAiUsage] = useState(null);
   const [pendingRequest, setPendingRequest] = useState(null);
 
   useEffect(() => {
@@ -24,11 +26,12 @@ export default function ProfilePage() {
         return;
       }
 
-      const [rows, snapshot, requests] = await Promise.all([getHistory(), getTokenSnapshot(currentUser), getMyPaymentRequests()]);
+      const [rows, snapshot, requests, aiMessages] = await Promise.all([getHistory(), getTokenSnapshot(currentUser), getMyPaymentRequests(), getMyAiMessageUsage(currentUser.id)]);
       if (!active) return;
       setUser(currentUser);
       setHistory(rows);
       setTokenInfo(snapshot);
+      setAiUsage(aiMessages);
       setPendingRequest(requests.find((request) => request.status === 'pending') || null);
     }
 
@@ -103,7 +106,7 @@ export default function ProfilePage() {
           </Panel>
 
           <Panel icon={WalletCards} title="Usage">
-            <UsageSection user={user} tokenInfo={tokenInfo} />
+            <UsageSection user={user} tokenInfo={tokenInfo} aiUsage={aiUsage} />
           </Panel>
 
           <Panel icon={Bell} title="Contrôle du compte">
@@ -154,7 +157,7 @@ function Field({ label, value }) {
   );
 }
 
-function UsageSection({ user, tokenInfo }) {
+function UsageSection({ user, tokenInfo, aiUsage }) {
   const used = Number(tokenInfo?.used || 0);
   const limit = Number(tokenInfo?.limit || 0);
   const remaining = Number(tokenInfo?.remaining || 0);
@@ -184,6 +187,12 @@ function UsageSection({ user, tokenInfo }) {
         <UsageMetric label="Tokens restants" value={remaining} />
         <UsageMetric label="Limite" value={limit} />
       </div>
+      {isFreeUsage(user, tokenInfo) ? (
+        <p className={`mt-4 rounded-2xl border px-4 py-3 text-sm font-black ${Number(aiUsage?.used || 0) >= 5 ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-white text-emerald-800'}`}>
+          Assistant IA : {Number(aiUsage?.used || 0)} / 5 messages utilisés
+          {Number(aiUsage?.used || 0) >= 5 ? ' - Limite IA atteinte' : ''}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -232,6 +241,10 @@ function getUsageInfoLabel(user, tokenInfo) {
   if (tokenInfo.packStatus === 'active' && tokenInfo.packType === 'yearly') return `Pack annuel actif jusqu'au ${formatDate(tokenInfo.periodEnd)}`;
   if (user.packStatus === 'expired') return 'Pack expiré. Vous utilisez les limites du Pack Gratuit.';
   return `Réinitialisation : ${formatResetLabel(tokenInfo.periodStart, tokenInfo.periodEnd)}`;
+}
+
+function isFreeUsage(user, tokenInfo) {
+  return user.packStatus !== 'active' || tokenInfo?.packStatus !== 'active';
 }
 
 function formatDate(value) {

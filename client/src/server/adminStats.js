@@ -1,5 +1,56 @@
 const SUPABASE_REST_PATH = '/rest/v1';
 const STORAGE_WARNING = 'Base de donnees non configuree. Ajoutez SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY dans Vercel.';
+const FREE_AI_MESSAGES_LIMIT = 5;
+
+export async function getRequesterPackAccess({ requesterToken } = {}) {
+  const config = requireSupabaseConfig();
+  const user = await requireAuthenticatedUser(config, requesterToken);
+  const profile = await readProfile(config, user.id);
+  const effective = profile ? effectivePack(profile) : { status: 'free', type: 'none' };
+  const premium = effective.status === 'active' && ['monthly', 'yearly'].includes(effective.type) && effective.endAt && new Date(effective.endAt).getTime() > Date.now();
+
+  return { config, user, profile, premium, effective };
+}
+
+export async function assertCanUseAiAssistant({ requesterToken } = {}) {
+  const access = await getRequesterPackAccess({ requesterToken });
+  if (access.premium) return { ...access, limited: false, used: 0, limit: FREE_AI_MESSAGES_LIMIT };
+
+  const usage = await readAiMessageUsage(access.config, access.user.id);
+  if (usage.message_count >= FREE_AI_MESSAGES_LIMIT) {
+    const error = new Error('Vous avez atteint la limite gratuite de 5 messages IA. Passez à un pack premium pour continuer.');
+    error.status = 429;
+    throw error;
+  }
+
+  return { ...access, limited: true, used: usage.message_count, limit: FREE_AI_MESSAGES_LIMIT, usage };
+}
+
+export async function incrementFreeAiAssistantUsage({ requesterToken } = {}) {
+  const access = await getRequesterPackAccess({ requesterToken });
+  if (access.premium) return { limited: false };
+
+  const usage = await readAiMessageUsage(access.config, access.user.id);
+  const nextCount = Number(usage.message_count || 0) + 1;
+  const nowIso = new Date().toISOString();
+
+  if (usage.id) {
+    await supabaseRequest(access.config, 'ai_message_usage', {
+      method: 'PATCH',
+      query: { id: `eq.${usage.id}` },
+      headers: { Prefer: 'return=minimal' },
+      body: { message_count: nextCount, updated_at: nowIso },
+    });
+  } else {
+    await supabaseRequest(access.config, 'ai_message_usage', {
+      method: 'POST',
+      headers: { Prefer: 'return=minimal' },
+      body: { user_id: access.user.id, message_count: nextCount, period_start: nowIso, updated_at: nowIso },
+    });
+  }
+
+  return { limited: true, used: nextCount, limit: FREE_AI_MESSAGES_LIMIT };
+}
 
 export async function readAdminStats({ requesterToken } = {}) {
   const config = getSupabaseConfig();
@@ -431,6 +482,19 @@ async function readPackSettings(config) {
     monthly_tokens: Number(settings.monthly_tokens || 100),
     yearly_tokens: Number(settings.yearly_tokens || 1500),
   };
+}
+
+async function readAiMessageUsage(config, userId) {
+  const rows = await supabaseRequest(config, 'ai_message_usage', {
+    method: 'GET',
+    query: { select: 'id,user_id,message_count,period_start', user_id: `eq.${userId}`, order: 'created_at.desc', limit: '1' },
+  }).catch((error) => {
+    error.message = 'La limite Assistant IA n’est pas configuree. Ajoutez la table ai_message_usage.';
+    throw error;
+  });
+
+  const row = Array.isArray(rows) ? rows[0] : null;
+  return row || { id: null, user_id: userId, message_count: 0 };
 }
 
 async function updateProfile(config, userId, body) {

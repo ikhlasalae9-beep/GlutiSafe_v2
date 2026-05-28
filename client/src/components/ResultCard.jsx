@@ -1,4 +1,5 @@
 import { Bot, RefreshCw, Save, ShieldCheck } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { confidenceLabel, getStatusStyle } from '../lib/status.js';
 import RiskBadges from './RiskBadges.jsx';
 
@@ -12,6 +13,7 @@ export default function ResultCard({
   saved,
   onNew,
   onHistory,
+  showAiExplanation = true,
 }) {
   const normalizedAnalysis = analysis || legacyAnalysis(status, ingredients);
   const style = getStatusStyle(normalizedAnalysis.status);
@@ -63,19 +65,33 @@ export default function ResultCard({
           </div>
         ) : null}
 
-        <div className="soft-card p-5">
-          <div className="flex items-start gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#f0f7f1] text-[#008f45]">
-              <Bot className="h-5 w-5" aria-hidden="true" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-lg font-extrabold text-[#1d252b]">Explication prudente</p>
-              <p className="mt-2 text-sm leading-7 text-slate-600">
-                {explanation || normalizedAnalysis.message || 'Aucune explication disponible pour cette analyse.'}
-              </p>
+        {showAiExplanation ? (
+          <div className="soft-card p-5">
+            <div className="flex items-start gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#f0f7f1] text-[#008f45]">
+                <Bot className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-lg font-extrabold text-[#1d252b]">Explication prudente</p>
+                <p className="mt-2 text-sm leading-7 text-slate-600">
+                  {explanation || normalizedAnalysis.message || 'Aucune explication disponible pour cette analyse.'}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="soft-card p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-lg font-extrabold text-[#1d252b]">Explication IA premium</p>
+                <p className="mt-2 text-sm leading-7 text-slate-600">L’explication IA est disponible avec le Pack Mensuel ou Annuel.</p>
+              </div>
+              <Link to="/packs" className="primary-btn justify-center">
+                Voir les packs
+              </Link>
+            </div>
+          </div>
+        )}
 
         <p className="rounded-2xl border border-[#dfe8df] bg-[#f7f8f6] px-4 py-3 text-sm leading-6 text-slate-600">
           GlutiSafe aide à lire une étiquette, mais ne remplace pas la vérification de l'emballage officiel ni les

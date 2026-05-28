@@ -1,11 +1,14 @@
 import {
   activateUserPack,
+  assertCanUseAiAssistant,
   assertCanUserAnalyze,
   blockUser,
   confirmPayment,
   createManualPackRequest,
   deleteUserAccount,
   expireUserPack,
+  getRequesterPackAccess,
+  incrementFreeAiAssistantUsage,
   makeUserAdmin,
   readAdminStats,
   rejectPayment,
@@ -125,10 +128,14 @@ async function handleAnalyze(req, res) {
 
 async function handleFullAnalysis(req, res) {
   await enforceAnalyzeLimitIfAuthenticated(req);
+  const access = await getOptionalRequesterPackAccess(req);
   const { text = '' } = await readJsonBody(req);
   const analysis = analyzeIngredients(text);
+  if (!access || !access.premium) {
+    return res.status(200).json({ analysis, explanation: '', explanationAvailable: false });
+  }
   const explanation = await generateExplanation({ analysis, text });
-  return res.status(200).json({ analysis, explanation });
+  return res.status(200).json({ analysis, explanation, explanationAvailable: true });
 }
 
 async function enforceAnalyzeLimitIfAuthenticated(req) {
@@ -138,6 +145,14 @@ async function enforceAnalyzeLimitIfAuthenticated(req) {
 }
 
 async function handleExplain(req, res) {
+  const access = await getOptionalRequesterPackAccess(req);
+  if (!access || !access.premium) {
+    return res.status(403).json({
+      error: 'AI_EXPLANATION_PREMIUM_ONLY',
+      message: 'L’explication IA est disponible avec le Pack Mensuel ou Annuel.',
+    });
+  }
+
   const payload = await readJsonBody(req);
   const analysis = payload.analysis || {
     status: payload.status,
@@ -156,6 +171,8 @@ async function handleChatbot(req, res) {
   const { message, context = {} } = await readJsonBody(req);
   const cleanMessage = String(message || '').trim();
   const safeContext = context && typeof context === 'object' && !Array.isArray(context) ? context : {};
+  const requesterToken = readBearerToken(req);
+  let aiAccess = null;
 
   if (!cleanMessage) {
     return res.status(400).json({ error: 'MESSAGE_REQUIRED', message: 'Le message est obligatoire.' });
@@ -165,7 +182,17 @@ async function handleChatbot(req, res) {
     return res.status(400).json({ error: 'MESSAGE_TOO_LONG', message: 'Le message est trop long.' });
   }
 
+  try {
+    aiAccess = await assertCanUseAiAssistant({ requesterToken });
+  } catch (error) {
+    return res.status(error.status || 401).json({
+      error: 'AI_ASSISTANT_LIMIT',
+      message: error.message || 'Connectez-vous pour utiliser l’assistant IA.',
+    });
+  }
+
   if (isGreeting(cleanMessage)) {
+    await incrementFreeAiAssistantUsage({ requesterToken });
     return res.status(200).json({ reply: greetingReply(cleanMessage) });
   }
 
@@ -178,6 +205,10 @@ async function handleChatbot(req, res) {
       temperature: 0.3,
       maxTokens: 500,
     });
+
+    if (aiAccess?.limited) {
+      await incrementFreeAiAssistantUsage({ requesterToken });
+    }
 
     return res.status(200).json({ reply });
   } catch (error) {
@@ -196,6 +227,16 @@ async function handleChatbot(req, res) {
       error: 'CHATBOT_SERVICE_UNAVAILABLE',
       message: SERVICE_UNAVAILABLE_MESSAGE,
     });
+  }
+}
+
+async function getOptionalRequesterPackAccess(req) {
+  const token = readBearerToken(req);
+  if (!token) return null;
+  try {
+    return await getRequesterPackAccess({ requesterToken: token });
+  } catch {
+    return null;
   }
 }
 

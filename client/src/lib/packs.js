@@ -29,7 +29,7 @@ export const PACKS = [
     priceKey: null,
     cadence: '',
     scansKey: 'free_tokens',
-    features: ['Tokens gratuits renouvelables', 'Historique limite aux 3 dernieres analyses', 'OCR de base', 'Detection gluten'],
+    features: ['Tokens gratuits renouvelables', 'Historique limité aux 3 dernières analyses', 'OCR de base', 'Détection gluten'],
     cta: 'Pack actuel',
   },
   {
@@ -41,7 +41,7 @@ export const PACKS = [
     priceKey: 'monthly_price_mad',
     cadence: '/ 30 jours',
     scansKey: 'monthly_tokens',
-    features: ['Tokens premium sur 30 jours', 'Historique complet', 'Explication IA', 'Activation apres verification admin'],
+    features: ['OCR avancé', 'Détection gluten', 'Explication IA', 'Assistant IA', 'Historique complet', 'Images produits dans l’historique', 'Plus de tokens'],
     cta: 'Demander ce pack',
   },
   {
@@ -53,7 +53,7 @@ export const PACKS = [
     priceKey: 'yearly_price_mad',
     cadence: '/ 365 jours',
     scansKey: 'yearly_tokens',
-    features: ['Tokens premium sur 365 jours', 'Historique complet', 'Explication IA', 'Meilleur choix'],
+    features: ['OCR avancé', 'Détection gluten', 'Explication IA', 'Assistant IA', 'Historique complet', 'Images produits dans l’historique', 'Plus de tokens'],
     cta: 'Demander ce pack',
     highlighted: true,
   },

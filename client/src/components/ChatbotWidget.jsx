@@ -56,8 +56,8 @@ export default function ChatbotWidget() {
         ...current,
         { id: crypto.randomUUID(), role: 'assistant', content: data.reply },
       ]);
-    } catch {
-      setError(GENERIC_ERROR);
+    } catch (sendError) {
+      setError(sendError.message || GENERIC_ERROR);
     } finally {
       setLoading(false);
     }

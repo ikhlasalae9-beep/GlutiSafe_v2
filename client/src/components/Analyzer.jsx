@@ -140,7 +140,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
     setSaved(false);
 
     try {
-      await assertCanAnalyze();
+      const usage = await assertCanAnalyze();
       const result = await fullAnalysis(text);
       const savedAnalysis = await logCompletedScan({ result, text, inputType: method, productName, imageFile: file });
       setTokenInfo(await getTokenSnapshot());
@@ -151,6 +151,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
         text,
         inputType: method,
         imageData,
+        showAiExplanation: Boolean(usage.isPaid),
         savedAnalysisId: savedAnalysis?.id,
         productName: savedAnalysis?.productName || productName || 'Produit sans nom',
       });
@@ -261,6 +262,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
               analysis={latestResult.analysis}
               explanation={latestResult.explanation}
               text={latestResult.text}
+              showAiExplanation={latestResult.showAiExplanation ?? Boolean(tokenInfo?.isPaid)}
               onSave={handleSave}
               saved={saved}
               onNew={resetAll}
