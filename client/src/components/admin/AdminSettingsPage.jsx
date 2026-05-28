@@ -112,6 +112,18 @@ export default function AdminSettingsPage({ dashboard, onSaved }) {
           <PackBox title="Pack Mensuel">
             <NumberField label="Prix mensuel MAD" value={packForm.monthly_price_mad} onChange={(value) => setPackForm({ ...packForm, monthly_price_mad: value })} />
             <NumberField label="Tokens mensuels" value={packForm.monthly_tokens} onChange={(value) => setPackForm({ ...packForm, monthly_tokens: value })} />
+            <label className="block">
+              <span className="text-sm font-bold text-slate-700">Réinitialisation des tokens mensuels</span>
+              <select
+                value={String(packForm.monthly_reset_hours || 24)}
+                onChange={(event) => setPackForm({ ...packForm, monthly_reset_hours: event.target.value })}
+                className="mt-2 w-full rounded-2xl border border-[#dfe8df] bg-[#f7f8f6] px-4 py-3 text-sm font-bold outline-none"
+              >
+                <option value="24">Chaque 24 heures</option>
+                <option value="168">Chaque 7 jours</option>
+              </select>
+            </label>
+            <NumberField label="Messages IA mensuels" value={packForm.monthly_ai_messages_limit ?? 100} onChange={(value) => setPackForm({ ...packForm, monthly_ai_messages_limit: value })} />
             <ReadOnly label="Duree" value="30 jours" />
           </PackBox>
 
@@ -171,6 +183,8 @@ function parsePackForm(form) {
     free_tokens: Number(form.free_tokens),
     free_reset_hours: Number(form.free_reset_hours),
     monthly_tokens: Number(form.monthly_tokens),
+    monthly_reset_hours: Number(form.monthly_reset_hours ?? 24),
+    monthly_ai_messages_limit: Number(form.monthly_ai_messages_limit ?? 100),
     yearly_tokens: Number(form.yearly_tokens),
     monthly_price_mad: Number(form.monthly_price_mad),
     yearly_price_mad: Number(form.yearly_price_mad),
@@ -182,6 +196,10 @@ function parsePackForm(form) {
 
   if (![5, 24, 168].includes(payload.free_reset_hours)) {
     throw new Error('La reinitialisation gratuite doit etre 5h, 24h ou 7 jours.');
+  }
+
+  if (![24, 168].includes(payload.monthly_reset_hours)) {
+    throw new Error('La reinitialisation mensuelle doit etre 24h ou 7 jours.');
   }
 
   return payload;

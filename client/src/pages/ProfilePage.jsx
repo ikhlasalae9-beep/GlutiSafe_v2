@@ -237,7 +237,7 @@ function getUsageInfoLabel(user, tokenInfo) {
   if (!tokenInfo) return '-';
   if (user.packStatus === 'blocked' || tokenInfo.packStatus === 'blocked') return "Votre compte est bloqué. Contactez l'administration.";
   if (user.packStatus === 'pending') return 'Votre demande est en attente de vérification administrateur.';
-  if (tokenInfo.packStatus === 'active' && tokenInfo.packType === 'monthly') return `Pack mensuel actif jusqu'au ${formatDate(tokenInfo.periodEnd)}`;
+  if (tokenInfo.packStatus === 'active' && tokenInfo.packType === 'monthly') return `Pack Mensuel actif - Réinitialisation : ${formatResetLabel(tokenInfo.periodStart, tokenInfo.periodEnd)}`;
   if (tokenInfo.packStatus === 'active' && tokenInfo.packType === 'yearly') return `Pack annuel actif jusqu'au ${formatDate(tokenInfo.periodEnd)}`;
   if (user.packStatus === 'expired') return 'Pack expiré. Vous utilisez les limites du Pack Gratuit.';
   return `Réinitialisation : ${formatResetLabel(tokenInfo.periodStart, tokenInfo.periodEnd)}`;

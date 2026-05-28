@@ -149,17 +149,25 @@ export async function assertCanUserAnalyze({ requesterToken }) {
     }
 
     const freeResetHours = [5, 24, 168].includes(Number(settings.free_reset_hours)) ? Number(settings.free_reset_hours) : 24;
+    const monthlyResetHours = [24, 168].includes(Number(settings.monthly_reset_hours)) ? Number(settings.monthly_reset_hours) : 24;
     const isPaid = effective.status === 'active' && ['monthly', 'yearly'].includes(effective.type) && effective.endAt && new Date(effective.endAt).getTime() > Date.now();
     const limit = isPaid
       ? effective.type === 'yearly'
         ? Number(settings.yearly_tokens || 1500)
         : Number(settings.monthly_tokens || 100)
       : Number(settings.free_tokens || 5);
-    const startIso = isPaid && effective.startAt ? new Date(effective.startAt).toISOString() : new Date(Date.now() - freeResetHours * 60 * 60 * 1000).toISOString();
-    const count = await countUserAnalyses(config, user.id, startIso, isPaid ? effective.endAt : null);
+    const startIso =
+      isPaid && effective.type === 'yearly' && effective.startAt
+        ? new Date(effective.startAt).toISOString()
+        : new Date(Date.now() - (isPaid && effective.type === 'monthly' ? monthlyResetHours : freeResetHours) * 60 * 60 * 1000).toISOString();
+    const count = await countUserAnalyses(config, user.id, startIso, isPaid && effective.type === 'yearly' ? effective.endAt : null);
 
     if (count >= limit) {
-      const error = new Error('Vous avez utilise tous vos tokens. Reessayez apres la reinitialisation ou passez a un pack premium.');
+      const error = new Error(
+        isPaid && effective.type === 'monthly'
+          ? 'Vous avez utilisé tous vos tokens du Pack Mensuel. Vos tokens seront renouvelés selon votre période de réinitialisation.'
+          : 'Vous avez utilise tous vos tokens. Reessayez apres la reinitialisation ou passez a un pack premium.',
+      );
       error.status = 429;
       throw error;
     }
@@ -480,6 +488,8 @@ async function readPackSettings(config) {
     free_tokens: Number(settings.free_tokens || 5),
     free_reset_hours: Number(settings.free_reset_hours || 24),
     monthly_tokens: Number(settings.monthly_tokens || 100),
+    monthly_reset_hours: Number(settings.monthly_reset_hours || 24),
+    monthly_ai_messages_limit: Number(settings.monthly_ai_messages_limit || 100),
     yearly_tokens: Number(settings.yearly_tokens || 1500),
   };
 }

@@ -3,6 +3,7 @@ import { DEFAULT_PACK_SETTINGS, getEffectivePackStatus, normalizePackSettings, n
 import { requireSupabaseClient } from './supabaseClient.js';
 
 const TOKEN_LIMIT_MESSAGE = 'Vous avez utilise tous vos tokens. Reessayez apres la reinitialisation ou passez a un pack premium.';
+const MONTHLY_TOKEN_LIMIT_MESSAGE = 'Vous avez utilisé tous vos tokens du Pack Mensuel. Vos tokens seront renouvelés selon votre période de réinitialisation.';
 
 export function normalizeProfilePack(profile = {}) {
   const status = getEffectivePackStatus(profile);
@@ -42,28 +43,37 @@ export async function getUsageInfo(userId, profile, settings) {
 
   const now = new Date();
   const freeResetHours = [5, 24, 168].includes(Number(settings.free_reset_hours)) ? Number(settings.free_reset_hours) : 24;
+  const monthlyResetHours = [24, 168].includes(Number(settings.monthly_reset_hours)) ? Number(settings.monthly_reset_hours) : 24;
   let packStatus = 'free';
   let packType = 'none';
   let limit = Number(settings.free_tokens || DEFAULT_PACK_SETTINGS.free_tokens);
   let periodEnd = new Date(now.getTime() + freeResetHours * 60 * 60 * 1000).toISOString();
   let periodStart = new Date(now.getTime() - freeResetHours * 60 * 60 * 1000).toISOString();
   let isPaid = false;
+  let message = TOKEN_LIMIT_MESSAGE;
 
   if (pack.active && pack.endAt && new Date(pack.endAt).getTime() > now.getTime()) {
     packStatus = 'active';
     packType = pack.type;
     isPaid = true;
-    limit = pack.type === 'yearly' ? Number(settings.yearly_tokens || DEFAULT_PACK_SETTINGS.yearly_tokens) : Number(settings.monthly_tokens || DEFAULT_PACK_SETTINGS.monthly_tokens);
-    periodStart = pack.startAt || now.toISOString();
-    periodEnd = pack.endAt;
+    if (pack.type === 'monthly') {
+      limit = Number(settings.monthly_tokens || DEFAULT_PACK_SETTINGS.monthly_tokens);
+      periodStart = new Date(now.getTime() - monthlyResetHours * 60 * 60 * 1000).toISOString();
+      periodEnd = new Date(now.getTime() + monthlyResetHours * 60 * 60 * 1000).toISOString();
+      message = MONTHLY_TOKEN_LIMIT_MESSAGE;
+    } else {
+      limit = Number(settings.yearly_tokens || DEFAULT_PACK_SETTINGS.yearly_tokens);
+      periodStart = pack.startAt || now.toISOString();
+      periodEnd = pack.endAt;
+    }
   }
 
-  const used = await countAnalyses(userId, periodStart, isPaid ? periodEnd : null);
+  const used = await countAnalyses(userId, periodStart, packType === 'yearly' ? periodEnd : null);
   const remaining = Math.max(limit - used, 0);
 
   return {
     allowed: remaining > 0,
-    message: remaining > 0 ? '' : TOKEN_LIMIT_MESSAGE,
+    message: remaining > 0 ? '' : message,
     used,
     limit,
     remaining,
