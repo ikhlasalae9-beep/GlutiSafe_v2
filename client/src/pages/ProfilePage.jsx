@@ -113,7 +113,7 @@ export default function ProfilePage() {
             <PackStatusSection user={user} tokenInfo={tokenInfo} pendingRequest={pendingRequest} receipts={receipts} />
           </Panel>
 
-          <Panel icon={WalletCards} title="Usage">
+          <Panel icon={WalletCards} title="Utilisation">
             <UsageSection user={user} tokenInfo={tokenInfo} aiUsage={aiUsage} />
           </Panel>
 
@@ -195,8 +195,8 @@ function UsageSection({ user, tokenInfo, aiUsage }) {
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
-        <UsageMetric label="Tokens utilisés" value={`${used} / ${limit}`} />
-        <UsageMetric label="Tokens restants" value={remaining} />
+        <UsageMetric label="Analyses utilisées" value={`${used} / ${limit}`} />
+        <UsageMetric label="Analyses restantes" value={remaining} />
         <UsageMetric label="Limite" value={limit} />
       </div>
       <ul className="mt-5 grid gap-2 rounded-2xl border border-[#dfe8df] bg-white p-4 text-sm font-bold text-slate-700 sm:grid-cols-2">
@@ -209,8 +209,8 @@ function UsageSection({ user, tokenInfo, aiUsage }) {
       </ul>
       {isFreeUsage(user, tokenInfo) ? (
         <p className={`mt-4 rounded-2xl border px-4 py-3 text-sm font-black ${Number(aiUsage?.used || 0) >= 5 ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-white text-emerald-800'}`}>
-          Assistant IA : {Number(aiUsage?.used || 0)} / 5 messages utilisés
-          {Number(aiUsage?.used || 0) >= 5 ? ' - Limite IA atteinte' : ''}
+          Messages avec l’assistant : {Number(aiUsage?.used || 0)} / 5 utilisés
+          {Number(aiUsage?.used || 0) >= 5 ? ' - Limite atteinte' : ''}
         </p>
       ) : null}
     </div>
@@ -238,7 +238,7 @@ function PackStatusSection({ user, tokenInfo, pendingRequest, receipts }) {
       {statusMessage ? <p className="mt-4 rounded-2xl border border-emerald-200 bg-white px-4 py-3 text-sm font-black text-emerald-800">{statusMessage}</p> : null}
       <div className="mt-4">
         <div className="mb-2 flex items-center justify-between text-sm font-black text-slate-700">
-          <span>Tokens restants</span>
+          <span>Analyses restantes</span>
           <span>{Number(tokenInfo?.remaining || 0)} / {limit}</span>
         </div>
         <div className="h-3 overflow-hidden rounded-full bg-white ring-1 ring-[#dfe8df]">
@@ -318,10 +318,10 @@ function getUsageInfoLabel(user, tokenInfo) {
   if (!tokenInfo) return '-';
   if (user.packStatus === 'blocked' || tokenInfo.packStatus === 'blocked') return "Votre compte est bloqué. Contactez l'administration.";
   if (user.packStatus === 'pending') return 'Votre demande est en attente de vérification administrateur.';
-  if (tokenInfo.packStatus === 'active' && tokenInfo.packType === 'monthly') return `Pack Mensuel actif - Réinitialisation : ${formatResetLabel(tokenInfo.periodStart, tokenInfo.periodEnd)}`;
-  if (tokenInfo.packStatus === 'active' && tokenInfo.packType === 'yearly') return `Pack Annuel actif jusqu'au ${formatDate(user.packEndAt)} - Réinitialisation : ${formatResetLabel(tokenInfo.periodStart, tokenInfo.periodEnd)}`;
+  if (tokenInfo.packStatus === 'active' && tokenInfo.packType === 'monthly') return `Pack Mensuel actif - Renouvellement : ${formatResetLabel(tokenInfo.periodStart, tokenInfo.periodEnd)}`;
+  if (tokenInfo.packStatus === 'active' && tokenInfo.packType === 'yearly') return `Pack Annuel actif jusqu'au ${formatDate(user.packEndAt)} - Renouvellement : ${formatResetLabel(tokenInfo.periodStart, tokenInfo.periodEnd)}`;
   if (user.packStatus === 'expired') return 'Pack expiré. Vous utilisez les limites du Pack Gratuit.';
-  return `Prochaine réinitialisation : ${tokenInfo.resetAt ? formatResetDateTime(tokenInfo.resetAt) : 'après votre première analyse.'}`;
+  return `Prochain renouvellement : ${tokenInfo.resetAt ? formatResetDateTime(tokenInfo.resetAt) : 'après votre première analyse.'}`;
 }
 
 function isFreeUsage(user, tokenInfo) {

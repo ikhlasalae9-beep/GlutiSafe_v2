@@ -1,12 +1,12 @@
 import { RotateCcw, ShieldCheck } from 'lucide-react';
 
-export default function ExtractedTextEditor({ title = 'Texte extrait', text, onChange, onAnalyze, onReset, loading }) {
+export default function ExtractedTextEditor({ title = 'Ingrédients lus', text, onChange, onAnalyze, onReset, loading }) {
   return (
     <div className="soft-card p-5">
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h3 className="text-xl font-extrabold text-[#1d252b]">{title}</h3>
-          <p className="mt-1 text-sm text-slate-600">Corrigez les erreurs OCR ou saisissez les ingrédients avant l'analyse.</p>
+          <p className="mt-1 text-sm text-slate-600">Vérifiez les ingrédients lus ou saisissez-les manuellement avant l’analyse.</p>
         </div>
         <span className="text-xs font-bold uppercase tracking-[0.14em] text-[#008f45]">{String(text || '').length} caractères</span>
       </div>

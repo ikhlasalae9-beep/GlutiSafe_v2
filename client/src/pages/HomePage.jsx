@@ -55,8 +55,8 @@ const steps = [
 
 const features = [
   {
-    title: 'OCR intelligent',
-    text: 'Extraction automatique du texte depuis les étiquettes alimentaires.',
+    title: 'Lecture automatique',
+    text: 'Lecture automatique des ingrédients depuis les étiquettes alimentaires.',
     icon: icons.ocr,
   },
   {
@@ -118,7 +118,7 @@ const faqs = [
   {
     question: "Comment l'application détecte le gluten ?",
     answer:
-      "L'application extrait le texte des ingrédients avec l'OCR, puis analyse les ingrédients pour identifier les éléments pouvant contenir du gluten ou présenter un risque.",
+      "L'application lit les ingrédients visibles, puis les analyse pour identifier les éléments pouvant contenir du gluten ou présenter un risque.",
   },
   {
     question: 'Est-ce que le résultat est immédiat ?',

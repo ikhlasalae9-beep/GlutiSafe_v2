@@ -20,7 +20,7 @@ export const supabase = isSupabaseConfigured
 
 export function requireSupabaseClient() {
   if (!supabase) {
-    throw new Error('Base de données non configurée. Ajoutez VITE_SUPABASE_URL et VITE_SUPABASE_PUBLISHABLE_KEY dans Vercel.');
+    throw new Error('Connexion indisponible pour le moment. Veuillez réessayer plus tard.');
   }
 
   return supabase;

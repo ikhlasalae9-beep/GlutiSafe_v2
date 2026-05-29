@@ -80,7 +80,7 @@ export default function ChatbotWidget() {
                 <Bot className="h-5 w-5" aria-hidden="true" />
               </span>
               <div className="min-w-0">
-                <h2 className="truncate font-black text-[#1d252b]">Assistant GlutiSafe</h2>
+                <h2 className="truncate font-black text-[#1d252b]">Assistant intelligent</h2>
                 <p className="truncate text-xs font-semibold text-slate-500">Ingrédients, gluten et résultats</p>
               </div>
             </div>
@@ -153,9 +153,9 @@ function AiLimitUpgradeCard() {
           <Lock className="h-5 w-5" aria-hidden="true" />
         </span>
         <div className="min-w-0">
-          <p className="font-black text-[#1d252b]">Limite IA atteinte</p>
+          <p className="font-black text-[#1d252b]">Limite atteinte</p>
           <p className="mt-1 font-semibold text-slate-600">
-            Votre Pack Gratuit inclut 5 messages avec l’assistant IA. Pour continuer, passez au Pack Mensuel ou Annuel.
+            Vous avez atteint la limite gratuite de 5 messages avec l’assistant intelligent. Passez à un pack premium pour continuer.
           </p>
           <Link to="/packs" className="mt-3 inline-flex items-center justify-center rounded-2xl bg-[#008f45] px-4 py-2 text-xs font-black text-white transition hover:bg-[#004b3a]">
             Voir les packs

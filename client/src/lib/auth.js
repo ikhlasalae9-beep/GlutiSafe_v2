@@ -194,8 +194,8 @@ function cleanAuthError(error) {
 
 export function cleanSupabaseError(error) {
   if (String(error?.message || '').toLowerCase().includes('row-level security')) {
-    return "Accès refusé par les règles de sécurité Supabase.";
+    return "Accès refusé par les règles de sécurité.";
   }
 
-  return error?.message || 'Erreur Supabase.';
+  return error?.message || 'Erreur de connexion.';
 }

@@ -20,7 +20,7 @@ export default function ResetPasswordPage() {
     async function loadRecoverySession() {
       if (!supabase) {
         if (active) {
-          setError('Base de données non configurée.');
+          setError('Connexion indisponible pour le moment. Veuillez réessayer plus tard.');
           setSessionStatus('invalid');
         }
         return;

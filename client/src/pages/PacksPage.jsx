@@ -56,12 +56,12 @@ export default function PacksPage() {
     try {
       setRequesting(true);
       await createManualPackRequest({ profile, packType: selectedPack.packType, paymentMethod, userNote });
-      setMessage('Votre demande a ete envoyee. Un administrateur verifiera le paiement et activera votre pack.');
+      setMessage('Votre demande a été envoyée. Un administrateur vérifiera le paiement et activera votre pack.');
       setProfile(await getCurrentProfile());
       setSelectedPack(null);
       setUserNote('');
     } catch (err) {
-      setError(err.message || 'Impossible de creer la demande de paiement manuel.');
+      setError(err.message || 'Impossible de créer la demande de paiement manuel.');
     } finally {
       setRequesting(false);
     }
@@ -79,7 +79,7 @@ export default function PacksPage() {
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight text-[#1d252b]">Choisissez votre pack</h1>
             <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
-              Paiement manuel securise par RIB ou CashPlus. Les packs payants sont actives apres verification admin.
+              Paiement manuel sécurisé par RIB ou CashPlus. Les packs payants sont activés après vérification.
             </p>
           </div>
           <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
@@ -117,7 +117,7 @@ export default function PacksPage() {
               <p className="mt-2 text-sm font-black text-[#008f45]">{formatPackTokens(pack, packSettings)}</p>
               {pack.id === 'free' && tokenInfo ? (
                 <p className="mt-2 text-xs font-bold text-slate-500">
-                  Restants: {tokenInfo.remaining} - prochaine reinitialisation: {formatTokenReset(tokenInfo.periodEnd)}
+                  Analyses restantes : {tokenInfo.remaining} - prochain renouvellement : {formatTokenReset(tokenInfo.periodEnd)}
                 </p>
               ) : null}
               <ul className="mt-6 grid gap-3 text-sm font-semibold text-slate-700">
@@ -159,7 +159,7 @@ export default function PacksPage() {
             <div>
               <p className="brand-kicker">Paiement manuel</p>
               <h2 className="mt-1 text-2xl font-extrabold text-[#1d252b]">{selectedPack.displayName}</h2>
-              <p className="mt-2 text-sm font-semibold text-slate-600">Choisissez RIB ou CashPlus, puis envoyez votre demande apres paiement.</p>
+              <p className="mt-2 text-sm font-semibold text-slate-600">Choisissez RIB ou CashPlus, puis envoyez votre demande après paiement.</p>
             </div>
             <button type="button" onClick={() => setSelectedPack(null)} className="text-sm font-black text-slate-500 hover:text-[#008f45]">
               Fermer
@@ -185,7 +185,7 @@ export default function PacksPage() {
           <PaymentDetails method={paymentMethod} settings={paymentSettings || {}} />
 
           <label className="mt-5 block">
-            <span className="text-sm font-bold text-slate-700">Reference du paiement / numero d'operation / remarque</span>
+            <span className="text-sm font-bold text-slate-700">Référence du paiement / numéro d'opération / remarque</span>
             <textarea
               value={userNote}
               onChange={(event) => setUserNote(event.target.value)}
@@ -209,7 +209,7 @@ function PaymentDetails({ method, settings }) {
     method === 'cashplus'
       ? [
           ['Nom complet', settings.cashplus_full_name],
-          ['Telephone', settings.cashplus_phone],
+          ['Téléphone', settings.cashplus_phone],
           ['Ville', settings.cashplus_city],
         ]
       : [

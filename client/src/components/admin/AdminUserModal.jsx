@@ -61,7 +61,7 @@ export default function AdminUserModal({ user, scanCount = 0, actionLoading = ''
                 <h3 className="font-black text-red-800">Supprimer utilisateur</h3>
                 <p className="mt-1 text-sm font-semibold leading-6 text-red-700">Cette action est irréversible.</p>
                 <p className="mt-1 text-xs font-semibold leading-5 text-red-700">
-                  La suppression complète du compte Auth passe par l'API serveur sécurisée avec service role.
+                  La suppression complète du compte passe par une action sécurisée réservée aux administrateurs.
                 </p>
               </div>
             </div>

@@ -18,7 +18,7 @@ export default function AuthCallback() {
           setState({
             status: 'error',
             session: null,
-            error: 'Base de données non configurée. Ajoutez les variables Supabase dans Vercel.',
+            error: 'Connexion indisponible pour le moment. Veuillez réessayer plus tard.',
           });
         }
         return;

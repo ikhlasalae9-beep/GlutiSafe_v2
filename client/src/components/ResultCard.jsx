@@ -56,7 +56,7 @@ export default function ResultCard({
 
         {text ? (
           <div className="soft-card p-5">
-            <p className="brand-kicker">Texte extrait</p>
+            <p className="brand-kicker">Ingrédients lus</p>
             <p className="mt-3 max-h-44 overflow-auto rounded-2xl bg-[#f7f8f6] p-4 text-sm leading-7 text-slate-600">{text}</p>
           </div>
         ) : null}
@@ -68,7 +68,7 @@ export default function ResultCard({
                 <Bot className="h-5 w-5" aria-hidden="true" />
               </span>
               <div className="min-w-0">
-                <p className="text-lg font-extrabold text-[#1d252b]">Explication prudente</p>
+                <p className="text-lg font-extrabold text-[#1d252b]">Explication détaillée</p>
                 <p className="mt-2 text-sm leading-7 text-slate-600">
                   {explanation || normalizedAnalysis.message || 'Aucune explication disponible pour cette analyse.'}
                 </p>
@@ -92,14 +92,14 @@ export default function ResultCard({
                   <span className="inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-[#008f45] ring-1 ring-emerald-200">
                     Premium
                   </span>
-                  <p className="mt-3 text-lg font-extrabold text-[#1d252b]">Explication IA réservée aux packs premium</p>
+                  <p className="mt-3 text-lg font-extrabold text-[#1d252b]">Explication détaillée réservée aux packs premium</p>
                   <p className="mt-2 text-sm leading-7 text-slate-600">
-                    L’explication prudente détaillée vous aide à mieux comprendre les risques liés aux ingrédients.
+                    Cette explication vous aide à mieux comprendre les risques liés aux ingrédients. Elle est disponible avec le Pack Mensuel ou Annuel.
                   </p>
                 </div>
               </div>
               <Link to="/packs" className="primary-btn shrink-0 justify-center">
-                Débloquer l’explication IA
+                Voir les packs
               </Link>
             </div>
           </div>

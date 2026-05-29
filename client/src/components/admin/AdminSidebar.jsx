@@ -5,7 +5,7 @@ export const adminSections = [
   { id: 'users', label: 'Utilisateurs', icon: UsersRound },
   { id: 'analyses', label: 'Analyses', icon: ListChecks },
   { id: 'scan-stats', label: 'Statistiques scans', icon: BarChart3 },
-  { id: 'ai-usage', label: 'Utilisation IA', icon: BrainCircuit },
+  { id: 'ai-usage', label: 'Explications', icon: BrainCircuit },
   { id: 'packs', label: 'Packs', icon: WalletCards },
   { id: 'settings', label: 'Paramètres', icon: Settings },
 ];

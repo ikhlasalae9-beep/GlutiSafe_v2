@@ -24,9 +24,9 @@ export default function AboutPage({ onNavigate }) {
             <h2 className="text-2xl font-black text-slate-950">Comment ça marche</h2>
             <div className="mt-6 grid gap-4">
               {[
-                [ScanText, 'EasyOCR extrait le texte', 'Le service OCR Python extrait le texte visible avec EasyOCR.'],
-                [ClipboardCheck, 'Les règles détectent les mots à risque', 'Le moteur de règles détecte les mots liés au gluten et les termes ambigus.'],
-                [Brain, 'L’IA explique le résultat', 'L’IA explique le verdict en français, sans le modifier.'],
+                [ScanText, 'GlutiSafe lit l’étiquette', 'La lecture automatique repère les ingrédients visibles sur la photo.'],
+                [ClipboardCheck, 'GlutiSafe repère les mots à risque', 'L’analyse détecte les mots liés au gluten et les termes ambigus.'],
+                [Brain, 'Une explication accompagne le résultat', 'L’explication détaille le verdict en français, sans le modifier.'],
               ].map(([Icon, title, copy]) => (
                 <div key={title} className="flex gap-4 rounded-2xl bg-slate-50 p-4">
                   <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-emerald-100 text-emerald-700">
@@ -49,7 +49,7 @@ export default function AboutPage({ onNavigate }) {
                 <ul className="mt-3 space-y-2 text-sm leading-6 text-amber-900/80">
                   <li>Aucun diagnostic médical.</li>
                   <li>Aucune certification officielle sans gluten.</li>
-                  <li>L’OCR peut faire des erreurs.</li>
+                  <li>La lecture automatique peut faire des erreurs.</li>
                   <li>L’utilisateur doit vérifier l’étiquette du produit.</li>
                 </ul>
               </div>

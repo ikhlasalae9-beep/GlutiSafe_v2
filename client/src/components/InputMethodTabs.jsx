@@ -1,9 +1,9 @@
 import { Camera, FileImage, Keyboard } from 'lucide-react';
 
 const methods = [
-  { id: 'upload', label: 'Importer', icon: FileImage },
-  { id: 'camera', label: 'Camera', icon: Camera },
-  { id: 'manual', label: 'Manuel', icon: Keyboard },
+  { id: 'upload', label: 'Importer une image', icon: FileImage },
+  { id: 'camera', label: 'Prendre une photo', icon: Camera },
+  { id: 'manual', label: 'Saisie manuelle', icon: Keyboard },
 ];
 
 export default function InputMethodTabs({ value, onChange }) {

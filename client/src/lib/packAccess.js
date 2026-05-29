@@ -2,9 +2,9 @@ import { getCurrentProfile } from './auth.js';
 import { DEFAULT_PACK_SETTINGS, getEffectivePackStatus, normalizePackSettings, normalizePackType } from './packs.js';
 import { requireSupabaseClient } from './supabaseClient.js';
 
-const TOKEN_LIMIT_MESSAGE = 'Vous avez utilisé tous vos tokens gratuits.';
-const MONTHLY_TOKEN_LIMIT_MESSAGE = 'Vous avez utilisé tous vos tokens du Pack Mensuel. Vos tokens seront renouvelés selon votre période de réinitialisation.';
-const YEARLY_TOKEN_LIMIT_MESSAGE = 'Vous avez utilisé tous vos tokens du Pack Annuel. Vos tokens seront renouvelés selon votre période de réinitialisation.';
+const TOKEN_LIMIT_MESSAGE = 'Vous avez utilisé toutes vos analyses gratuites.';
+const MONTHLY_TOKEN_LIMIT_MESSAGE = 'Vous avez utilisé toutes vos analyses du Pack Mensuel. Vos analyses seront renouvelées selon votre période de renouvellement.';
+const YEARLY_TOKEN_LIMIT_MESSAGE = 'Vous avez utilisé toutes vos analyses du Pack Annuel. Vos analyses seront renouvelées selon votre période de renouvellement.';
 
 export function normalizeProfilePack(profile = {}) {
   const status = getEffectivePackStatus(profile);

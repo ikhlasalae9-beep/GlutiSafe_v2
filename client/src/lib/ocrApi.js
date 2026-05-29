@@ -18,14 +18,14 @@ export async function extractTextWithEasyOCR(file) {
       body: JSON.stringify({ base64Image: await fileToDataUrl(file) }),
     });
   } catch {
-    throw new Error('Le service OCR est indisponible. Vous pouvez saisir les ingrédients manuellement.');
+    throw new Error('La lecture automatique est indisponible. Vous pouvez saisir les ingrédients manuellement.');
   }
 
   let payload;
   try {
     payload = await response.json();
   } catch {
-    throw new Error('Réponse OCR invalide. Vous pouvez saisir les ingrédients manuellement.');
+    throw new Error('Lecture automatique invalide. Vous pouvez saisir les ingrédients manuellement.');
   }
 
   if (!response.ok || !payload.success) {
@@ -50,7 +50,7 @@ function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(new Error("Impossible de préparer l'image pour l'OCR."));
+    reader.onerror = () => reject(new Error("Impossible de préparer l'image pour la lecture."));
     reader.readAsDataURL(file);
   });
 }

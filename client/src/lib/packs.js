@@ -33,7 +33,7 @@ export const PACKS = [
     priceKey: null,
     cadence: '',
     scansKey: 'free_tokens',
-    features: ['Tokens gratuits renouvelables', 'Historique limité aux 3 dernières analyses', 'OCR de base', 'Détection gluten'],
+    features: ['Analyses gratuites renouvelables', 'Historique limité aux 3 dernières analyses', 'Lecture automatique de l’étiquette', 'Détection du gluten'],
     cta: 'Pack actuel',
   },
   {
@@ -45,7 +45,7 @@ export const PACKS = [
     priceKey: 'monthly_price_mad',
     cadence: '/ 30 jours',
     scansKey: 'monthly_tokens',
-    features: ['OCR avancé', 'Détection gluten', 'Explication IA', 'Assistant IA', 'Historique complet', 'Images produits dans l’historique', 'Plus de tokens'],
+    features: ['Lecture avancée de l’étiquette', 'Détection du gluten', 'Explication détaillée', 'Assistant intelligent', 'Historique complet', 'Images produits dans l’historique', 'Plus d’analyses disponibles'],
     cta: 'Demander ce pack',
   },
   {
@@ -57,7 +57,7 @@ export const PACKS = [
     priceKey: 'yearly_price_mad',
     cadence: '/ 365 jours',
     scansKey: 'yearly_tokens',
-    features: ['OCR avancé', 'Détection gluten', 'Explication IA', 'Assistant IA', 'Historique complet', 'Images produits dans l’historique', 'Maximum de tokens', 'Accès premium pendant 365 jours'],
+    features: ['Lecture avancée de l’étiquette', 'Détection du gluten', 'Explication détaillée', 'Assistant intelligent', 'Historique complet', 'Images produits dans l’historique', 'Maximum d’analyses disponibles', 'Accès premium pendant 365 jours'],
     cta: 'Demander ce pack',
     highlighted: true,
   },
@@ -95,8 +95,8 @@ export function getPackDisplayName(packStatus, packType) {
   const status = normalizePackStatus(packStatus);
   const type = normalizePackType(packType);
 
-  if (status === 'blocked') return 'Utilisateur bloque';
-  if (status === 'expired') return 'Pack expire';
+  if (status === 'blocked') return 'Utilisateur bloqué';
+  if (status === 'expired') return 'Pack expiré';
   if (status === 'pending') return 'Demande en attente';
   if (status === 'active') return getPackByType(type).displayName;
   return PACKS[0].displayName;
@@ -108,8 +108,8 @@ export function getPackStatusLabel(packStatus) {
     free: 'Gratuit',
     pending: 'En attente',
     active: 'Actif',
-    expired: 'Expire',
-    blocked: 'Bloque',
+    expired: 'Expiré',
+    blocked: 'Bloqué',
   };
   return labels[status] || labels.free;
 }
@@ -143,7 +143,7 @@ export function getPackLimit(profile = {}, settings = DEFAULT_PACK_SETTINGS) {
   const status = getEffectivePackStatus(profile);
   const type = normalizePackType(profile.packType || profile.pack_type);
 
-  if (status === 'blocked') return { blocked: true, message: "Votre compte est bloque. Contactez l'administration." };
+  if (status === 'blocked') return { blocked: true, message: "Votre compte est bloqué. Contactez l'administration." };
   if (status === 'active' && type === 'monthly') return { scans: Number(settings.monthly_tokens || 100), history: Infinity, premium: true };
   if (status === 'active' && type === 'yearly') return { scans: Number(settings.yearly_tokens || 1500), history: Infinity, premium: true };
   return { scans: Number(settings.free_tokens || 5), history: 3, premium: false };
@@ -155,9 +155,9 @@ export function describeCurrentPack(profile = {}) {
   const endAt = profile.packEndAt || profile.pack_end_at;
   const endLabel = formatDate(endAt);
 
-  if (status === 'blocked') return 'Compte bloque';
+  if (status === 'blocked') return 'Compte bloqué';
   if (status === 'pending') return 'Demande en attente';
-  if (status === 'expired') return 'Pack expire';
+  if (status === 'expired') return 'Pack expiré';
   if (status === 'active' && type === 'monthly') return `Pack Mensuel actif jusqu'au ${endLabel}`;
   if (status === 'active' && type === 'yearly') return `Pack Annuel actif jusqu'au ${endLabel}`;
   return 'Pack Gratuit';
@@ -197,7 +197,7 @@ export async function updatePaymentSettings(settings) {
     ? client.from('payment_settings').update(payload).eq('id', existing.data.id)
     : client.from('payment_settings').insert(payload);
   const { data, error } = await query.select('*').single();
-  if (error) throw new Error(error.message || 'Impossible de sauvegarder les parametres de paiement.');
+  if (error) throw new Error(error.message || 'Impossible de sauvegarder les paramètres de paiement.');
   return { ...DEFAULT_PAYMENT_SETTINGS, ...data };
 }
 
@@ -223,8 +223,8 @@ export function formatPackPrice(pack, settings) {
 
 export function formatPackTokens(pack, settings) {
   const tokens = Number(settings?.[pack.scansKey] ?? DEFAULT_PACK_SETTINGS[pack.scansKey]);
-  if (pack.id === 'free') return `${tokens} tokens / ${formatResetDuration(settings?.free_reset_hours || 24)}`;
-  return `${tokens} tokens`;
+  if (pack.id === 'free') return `${tokens} analyses / ${formatResetDuration(settings?.free_reset_hours || 24)}`;
+  return `${tokens} analyses`;
 }
 
 export function formatResetDuration(hours) {

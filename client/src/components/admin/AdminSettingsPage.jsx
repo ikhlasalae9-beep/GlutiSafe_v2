@@ -65,7 +65,7 @@ export default function AdminSettingsPage({ dashboard, onSaved }) {
   return (
     <div className="space-y-5">
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <AdminStatCard icon={ShieldCheck} label="Supabase" value={settings.supabaseConfigured ? 'Connecte' : 'Non configure'} tone={settings.supabaseConfigured ? 'green' : 'red'} />
+        <AdminStatCard icon={ShieldCheck} label="Base de données" value={settings.supabaseConfigured ? 'Connectée' : 'Non configurée'} tone={settings.supabaseConfigured ? 'green' : 'red'} />
         <AdminStatCard icon={ShieldCheck} label="Statut plateforme" value={settings.platformStatus} tone="green" />
         <AdminStatCard icon={WalletCards} label="Paiements" value="Manuels" />
         <AdminStatCard icon={UserRound} label="Admin" value={dashboard.admin?.name || dashboard.admin?.email || 'Admin'} />
@@ -113,7 +113,7 @@ export default function AdminSettingsPage({ dashboard, onSaved }) {
 
         <div className="mt-5 grid gap-5 xl:grid-cols-3">
           <PackBox title="Pack Gratuit" features={PACKS.find((pack) => pack.id === 'free')?.features}>
-            <NumberField label="Tokens gratuits" value={packForm.free_tokens} onChange={(value) => setPackForm({ ...packForm, free_tokens: value })} />
+            <NumberField label="Analyses gratuites" value={packForm.free_tokens} onChange={(value) => setPackForm({ ...packForm, free_tokens: value })} />
             <label className="block">
               <span className="text-sm font-bold text-slate-700">Reinitialisation</span>
               <select
@@ -130,9 +130,9 @@ export default function AdminSettingsPage({ dashboard, onSaved }) {
 
           <PackBox title="Pack Mensuel" features={PACKS.find((pack) => pack.id === 'monthly')?.features}>
             <NumberField label="Prix mensuel MAD" value={packForm.monthly_price_mad} onChange={(value) => setPackForm({ ...packForm, monthly_price_mad: value })} />
-            <NumberField label="Tokens mensuels" value={packForm.monthly_tokens} onChange={(value) => setPackForm({ ...packForm, monthly_tokens: value })} />
+            <NumberField label="Analyses mensuelles" value={packForm.monthly_tokens} onChange={(value) => setPackForm({ ...packForm, monthly_tokens: value })} />
             <label className="block">
-              <span className="text-sm font-bold text-slate-700">Réinitialisation des tokens mensuels</span>
+              <span className="text-sm font-bold text-slate-700">Renouvellement des analyses mensuelles</span>
               <select
                 value={String(packForm.monthly_reset_hours || 24)}
                 onChange={(event) => setPackForm({ ...packForm, monthly_reset_hours: event.target.value })}
@@ -142,15 +142,15 @@ export default function AdminSettingsPage({ dashboard, onSaved }) {
                 <option value="168">Chaque 7 jours</option>
               </select>
             </label>
-            <NumberField label="Messages IA mensuels" value={packForm.monthly_ai_messages_limit ?? 100} onChange={(value) => setPackForm({ ...packForm, monthly_ai_messages_limit: value })} />
+            <NumberField label="Messages assistant mensuels" value={packForm.monthly_ai_messages_limit ?? 100} onChange={(value) => setPackForm({ ...packForm, monthly_ai_messages_limit: value })} />
             <ReadOnly label="Duree" value="30 jours" />
           </PackBox>
 
           <PackBox title="Pack Annuel" features={PACKS.find((pack) => pack.id === 'yearly')?.features}>
             <NumberField label="Prix annuel MAD" value={packForm.yearly_price_mad} onChange={(value) => setPackForm({ ...packForm, yearly_price_mad: value })} />
-            <NumberField label="Tokens annuels" value={packForm.yearly_tokens} onChange={(value) => setPackForm({ ...packForm, yearly_tokens: value })} />
+            <NumberField label="Analyses annuelles" value={packForm.yearly_tokens} onChange={(value) => setPackForm({ ...packForm, yearly_tokens: value })} />
             <label className="block">
-              <span className="text-sm font-bold text-slate-700">Réinitialisation des tokens annuels</span>
+              <span className="text-sm font-bold text-slate-700">Renouvellement des analyses annuelles</span>
               <select
                 value={String(packForm.yearly_reset_hours || 168)}
                 onChange={(event) => setPackForm({ ...packForm, yearly_reset_hours: event.target.value })}
@@ -160,7 +160,7 @@ export default function AdminSettingsPage({ dashboard, onSaved }) {
                 <option value="720">Chaque 30 jours</option>
               </select>
             </label>
-            <NumberField label="Messages IA annuels" value={packForm.yearly_ai_messages_limit ?? 500} onChange={(value) => setPackForm({ ...packForm, yearly_ai_messages_limit: value })} />
+            <NumberField label="Messages assistant annuels" value={packForm.yearly_ai_messages_limit ?? 500} onChange={(value) => setPackForm({ ...packForm, yearly_ai_messages_limit: value })} />
             <ReadOnly label="Duree" value="365 jours" />
           </PackBox>
         </div>

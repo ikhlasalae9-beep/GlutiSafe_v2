@@ -5,19 +5,19 @@ import Hero from '../components/Hero.jsx';
 
 const features = [
   {
-    title: 'OCR intelligent',
+    title: 'Lecture automatique',
     icon: ScanLine,
-    text: 'Extraction du texte depuis une photo ou une image avec EasyOCR.',
+    text: 'Lecture des ingrédients depuis une photo ou une image.',
   },
   {
-    title: 'Détection par règles',
+    title: 'Détection du gluten',
     icon: ClipboardList,
-    text: 'Le verdict est basé sur une liste claire de mots et expressions liés au gluten.',
+    text: 'GlutiSafe repère les mots et expressions liés au gluten.',
   },
   {
-    title: 'Explication IA prudente',
+    title: 'Explication détaillée',
     icon: Brain,
-    text: 'L’IA explique le résultat sans remplacer le verdict ni donner de diagnostic médical.',
+    text: 'Une explication claire accompagne le résultat sans remplacer un avis médical.',
   },
   {
     title: 'Historique local',

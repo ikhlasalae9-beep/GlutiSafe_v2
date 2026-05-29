@@ -21,7 +21,7 @@ export async function assertCanUseAiAssistant({ requesterToken } = {}) {
 
   const usage = await readAiMessageUsage(access.config, access.user.id);
   if (usage.message_count >= FREE_AI_MESSAGES_LIMIT) {
-    const error = new Error('Vous avez atteint la limite gratuite de 5 messages IA. Passez Ã  un pack premium pour continuer Ã  utiliser lâ€™assistant IA.');
+    const error = new Error('Vous avez atteint la limite gratuite de 5 messages avec l’assistant intelligent. Passez à un pack premium pour continuer.');
     error.status = 429;
     throw error;
   }
@@ -167,10 +167,10 @@ export async function assertCanUserAnalyze({ requesterToken }) {
     if (count >= limit) {
       const error = new Error(
         isPaid && effective.type === 'monthly'
-          ? 'Vous avez utilisÃ© tous vos tokens du Pack Mensuel. Vos tokens seront renouvelÃ©s selon votre pÃ©riode de rÃ©initialisation.'
+          ? 'Vous avez utilisé toutes vos analyses du Pack Mensuel. Vos analyses seront renouvelées selon votre période de renouvellement.'
           : isPaid && effective.type === 'yearly'
-            ? 'Vous avez utilisÃ© tous vos tokens du Pack Annuel. Vos tokens seront renouvelÃ©s selon votre pÃ©riode de rÃ©initialisation.'
-          : 'Vous avez utilise tous vos tokens. Reessayez apres la reinitialisation ou passez a un pack premium.',
+            ? 'Vous avez utilisé toutes vos analyses du Pack Annuel. Vos analyses seront renouvelées selon votre période de renouvellement.'
+          : 'Vous avez utilisé toutes vos analyses. Réessayez après le renouvellement ou passez à un pack premium.',
       );
       error.status = 429;
       throw error;
@@ -189,7 +189,7 @@ export async function assertCanUserAnalyze({ requesterToken }) {
 
   const effective = effectivePack(profile);
   if (effective.status === 'blocked') {
-    const error = new Error('Votre compte est bloquÃ©. Contactez lâ€™administration.');
+    const error = new Error('Votre compte est bloqué. Contactez l’administration.');
     error.status = 403;
     throw error;
   }
@@ -414,7 +414,7 @@ export async function resendReceiptEmail({ requesterToken, receiptId }) {
   const receipt = await readReceipt(config, receiptId);
 
   if (!receipt) {
-    const error = new Error('ReÃ§u introuvable.');
+    const error = new Error('Reçu introuvable.');
     error.status = 404;
     throw error;
   }
@@ -571,7 +571,7 @@ async function readAiMessageUsage(config, userId) {
     method: 'GET',
     query: { select: 'id,user_id,message_count,period_start', user_id: `eq.${userId}`, order: 'created_at.desc', limit: '1' },
   }).catch((error) => {
-    error.message = 'La limite Assistant IA nâ€™est pas configuree. Ajoutez la table ai_message_usage.';
+    error.message = 'La limite de l’assistant intelligent n’est pas configurée.';
     throw error;
   });
 
@@ -685,7 +685,7 @@ async function uploadReceiptPdf(config, path, pdfBuffer) {
   });
 
   if (!response.ok) {
-    const error = new Error('Impossible de sauvegarder le PDF du reÃ§u.');
+    const error = new Error('Impossible de sauvegarder le PDF du reçu.');
     error.status = response.status;
     error.details = await response.text().catch(() => '');
     throw error;
@@ -714,23 +714,23 @@ function generateReceiptPdf(receipt) {
   const packLabel = receipt.pack_type === 'yearly' ? 'Pack Annuel' : 'Pack Mensuel';
   const methodLabel = receipt.payment_method === 'cashplus' ? 'CashPlus' : receipt.payment_method === 'rib' ? 'RIB' : 'Manuel';
   const rows = [
-    ['NumÃ©ro de reÃ§u', receipt.receipt_number],
+    ['Numéro de reçu', receipt.receipt_number],
     ['Date de confirmation', formatFrenchDate(receipt.created_at)],
     ['Nom du client', receipt.customer_name],
     ['Email du client', receipt.customer_email],
-    ['Pack activÃ©', packLabel],
-    ['MÃ©thode de paiement', methodLabel],
-    ['Montant payÃ©', `${receipt.amount} ${receipt.currency || 'MAD'}`],
-    ['Date de dÃ©but', formatFrenchDate(receipt.pack_start_at)],
+    ['Pack activé', packLabel],
+    ['Méthode de paiement', methodLabel],
+    ['Montant payé', `${receipt.amount} ${receipt.currency || 'MAD'}`],
+    ['Date de début', formatFrenchDate(receipt.pack_start_at)],
     ['Date de fin', formatFrenchDate(receipt.pack_end_at)],
-    ['Statut', 'ConfirmÃ©'],
+    ['Statut', 'Confirmé'],
   ];
 
   const content = [
     'q 0.00 0.56 0.27 rg 0 792 595 -92 re f Q',
     'BT /F1 28 Tf 54 742 Td (GlutiSafe) Tj ET',
     'BT /F2 11 Tf 54 722 Td (Scan, Check, Stay Safe) Tj ET',
-    "BT /F1 20 Tf 54 674 Td (ReÃ§u d\\'activation du pack) Tj ET",
+    "BT /F1 20 Tf 54 674 Td (Reçu d\\'activation du pack) Tj ET",
     'q 0.91 0.96 0.91 rg 54 638 487 1 re f Q',
     ...rows.flatMap(([label, value], index) => {
       const y = 604 - index * 32;
@@ -742,7 +742,7 @@ function generateReceiptPdf(receipt) {
     }),
     'q 0.95 0.98 0.95 rg 54 146 487 78 re f Q',
     'BT /F1 12 Tf 70 192 Td (Merci pour votre confiance.) Tj ET',
-    "BT /F2 9 Tf 70 172 Td (GlutiSafe aide Ã  analyser les ingrÃ©dients visibles d\\'un produit.) Tj ET",
+    "BT /F2 9 Tf 70 172 Td (GlutiSafe aide à analyser les ingrédients visibles d\\'un produit.) Tj ET",
     "BT /F2 9 Tf 70 158 Td (L\\'application ne remplace pas une certification officielle.) Tj ET",
   ].join('\n');
 
@@ -957,8 +957,8 @@ function periodStart(pack) {
 }
 
 function limitMessage(pack, limit) {
-  if (pack.status === 'expired') return 'Votre pack est expirÃ©. Passez Ã  un pack premium pour continuer.';
-  if (pack.status !== 'active') return 'Vous avez atteint la limite de 5 scans du Pack Gratuit ce mois-ci. Passez Ã  un pack premium pour continuer.';
+  if (pack.status === 'expired') return 'Votre pack est expiré. Passez à un pack premium pour continuer.';
+  if (pack.status !== 'active') return 'Vous avez atteint la limite de 5 analyses du Pack Gratuit ce mois-ci. Passez à un pack premium pour continuer.';
   return `Vous avez atteint la limite de ${limit} scans pour votre pack.`;
 }
 

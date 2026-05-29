@@ -17,7 +17,7 @@ export default function ProtectedRoute({ adminOnly = false }) {
           setState({
             loading: false,
             profile: null,
-            error: 'Base de données non configurée. Ajoutez VITE_SUPABASE_URL et VITE_SUPABASE_PUBLISHABLE_KEY dans Vercel.',
+            error: 'Connexion indisponible pour le moment. Veuillez réessayer plus tard.',
           });
         }
         return;

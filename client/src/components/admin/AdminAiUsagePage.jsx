@@ -7,22 +7,22 @@ export default function AdminAiUsagePage({ aiUsage }) {
   return (
     <div className="space-y-5">
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <AdminStatCard icon={Sparkles} label="Explications IA générées" value={aiUsage.explanationsGenerated} />
+        <AdminStatCard icon={Sparkles} label="Explications détaillées générées" value={aiUsage.explanationsGenerated} />
         <AdminStatCard icon={FileText} label="Analyses avec explication" value={aiUsage.analysesWithExplanation} />
-        <AdminStatCard icon={CalendarClock} label="Dernière utilisation IA" value={formatDate(aiUsage.latestAiUse)} />
+        <AdminStatCard icon={CalendarClock} label="Dernière utilisation" value={formatDate(aiUsage.latestAiUse)} />
         <AdminStatCard
           icon={BrainCircuit}
-          label="Fournisseur IA utilisé"
-          value={aiUsage.provider || 'GPT-4o'}
-          hint={aiUsage.providerSubtitle || 'OpenAI / GitHub Models'}
+          label="Service utilisé"
+          value={aiUsage.provider || 'Assistant intelligent'}
+          hint={aiUsage.providerSubtitle || 'Service d’explication'}
         />
       </section>
 
       <section className="rounded-[1.25rem] border border-amber-200 bg-amber-50 p-5 text-sm font-bold text-amber-900">
-        Le suivi détaillé de l’utilisation IA n’est pas encore activé.
+        Le suivi détaillé de l’utilisation n’est pas encore activé.
       </section>
 
-      <AdminChartCard title="Utilisation IA dans le temps" subtitle="Estimée depuis les analyses avec explication">
+      <AdminChartCard title="Utilisation dans le temps" subtitle="Estimée depuis les analyses avec explication">
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={aiUsage.usageByDay}>
@@ -37,9 +37,9 @@ export default function AdminAiUsagePage({ aiUsage }) {
       </AdminChartCard>
 
       <section className="rounded-[1.25rem] border border-[#dfe8df] bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-extrabold text-[#1d252b]">Dernières explications IA</h2>
+        <h2 className="text-lg font-extrabold text-[#1d252b]">Dernières explications détaillées</h2>
         <div className="mt-4 grid gap-3">
-          {aiUsage.latestExplanations.length === 0 ? <p className="text-sm font-bold text-slate-500">Aucune explication IA enregistrée.</p> : null}
+          {aiUsage.latestExplanations.length === 0 ? <p className="text-sm font-bold text-slate-500">Aucune explication détaillée enregistrée.</p> : null}
           {aiUsage.latestExplanations.map((analysis) => (
             <article key={analysis.id} className="rounded-2xl border border-[#dfe8df] bg-[#f7f8f6] p-4">
               <p className="font-black text-[#1d252b]">{analysis.label}</p>

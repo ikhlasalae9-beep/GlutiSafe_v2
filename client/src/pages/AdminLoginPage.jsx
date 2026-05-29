@@ -46,7 +46,7 @@ export default function AdminLoginPage() {
               <img src="/logo.png" alt="Logo GlutiSafe" className="h-12 w-12 rounded-2xl bg-white object-contain shadow-sm ring-1 ring-[#dfe8df]" />
               <div>
                 <p className="text-2xl font-extrabold tracking-tight">GlutiSafe Admin</p>
-                <p className="text-sm text-slate-500">Connexion Supabase</p>
+                <p className="text-sm text-slate-500">Connexion administrateur</p>
               </div>
             </div>
 

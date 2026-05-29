@@ -8,14 +8,13 @@ export default function Hero({ onNavigate }) {
         <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55 }}>
           <div className="inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-white/80 px-4 py-2 text-sm font-bold text-emerald-700 shadow-sm">
             <WheatOff size={17} />
-            EasyOCR, règles et explication IA prudente
+            Lecture d’étiquette et détection du gluten
           </div>
           <h1 className="mt-7 max-w-3xl text-4xl font-black leading-tight text-slate-950 sm:text-5xl lg:text-6xl">
             Analysez les ingrédients. Détectez les risques liés au gluten.
           </h1>
           <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
-            GlutiSafe aide à vérifier rapidement les ingrédients visibles d’un produit grâce à EasyOCR, des règles
-            de détection et une explication IA prudente.
+            GlutiSafe aide à vérifier rapidement les ingrédients visibles d’un produit avec une lecture claire et une explication détaillée.
           </p>
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
             <button
@@ -80,7 +79,7 @@ export default function Hero({ onNavigate }) {
           <div className="mt-5 rounded-3xl border border-slate-100 bg-white/82 p-5">
             <div className="mb-3 flex items-center gap-2 text-sm font-black text-slate-950">
               <Sparkles className="text-emerald-600" size={18} />
-              Explication IA
+              Explication détaillée
             </div>
             <p className="text-sm leading-6 text-slate-600">
               Cela ne garantit pas une certification sans gluten. Vérifiez toujours l’étiquette officielle et les

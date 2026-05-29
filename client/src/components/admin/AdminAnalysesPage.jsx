@@ -30,7 +30,7 @@ export default function AdminAnalysesPage({ analyses }) {
         <div className="grid gap-3 xl:grid-cols-[1fr_220px_180px_180px]">
           <label className="relative block">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" aria-hidden="true" />
-            <input value={search} onChange={(event) => setSearch(event.target.value)} className="w-full rounded-2xl border border-[#dfe8df] bg-[#f7f8f6] py-3 pl-12 pr-4 text-sm font-semibold outline-none focus:border-[#008f45] focus:ring-4 focus:ring-[#a8cfa5]/30" placeholder="Nom, email ou texte OCR" />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} className="w-full rounded-2xl border border-[#dfe8df] bg-[#f7f8f6] py-3 pl-12 pr-4 text-sm font-semibold outline-none focus:border-[#008f45] focus:ring-4 focus:ring-[#a8cfa5]/30" placeholder="Nom, email ou texte lu" />
           </label>
           <select value={status} onChange={(event) => setStatus(event.target.value)} className="rounded-2xl border border-[#dfe8df] bg-[#f7f8f6] px-4 py-3 text-sm font-bold outline-none">
             {STATUSES.map((item) => <option key={item} value={item}>{item}</option>)}
@@ -53,7 +53,7 @@ export default function AdminAnalysesPage({ analyses }) {
                 </div>
                 <p className="mt-2 text-base font-black text-[#1d252b]">{analysis.productName || 'Produit sans nom'}</p>
                 <p className="mt-1 text-sm font-semibold text-slate-600">{analysis.userName} {analysis.userEmail ? `(${analysis.userEmail})` : ''}</p>
-                <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-500">{analysis.ocrText || 'Aucun texte OCR enregistré.'}</p>
+                <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-500">{analysis.ocrText || 'Aucun texte lu enregistré.'}</p>
                 <WordList words={analysis.detectedWords} />
               </div>
               <div className="flex flex-col gap-2 lg:items-end">
@@ -84,7 +84,7 @@ function AnalysisModal({ analysis, onClose }) {
           <button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-2xl border border-[#dfe8df] text-slate-500"><X className="h-5 w-5" /></button>
         </div>
         <div className="mt-5 grid gap-4">
-          <Detail title="Texte OCR" value={analysis.ocrText || '-'} />
+          <Detail title="Texte lu" value={analysis.ocrText || '-'} />
           <Detail title="Mots détectés" value={(analysis.detectedWords || []).join(', ') || '-'} />
           <Detail title="Mots possibles" value={(analysis.possibleWords || []).join(', ') || '-'} />
           <Detail title="Mentions sûres" value={(analysis.safeClaims || []).join(', ') || '-'} />

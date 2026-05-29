@@ -104,8 +104,8 @@ export async function fetchAdminDashboard() {
     settings: {
       supabaseConfigured: isSupabaseConfigured,
       supabaseUrl: SUPABASE_URL,
-      apiUrl: API_URL || 'Same-origin Vercel API',
-      ocrMode: API_URL ? 'Backend OCR API' : 'Vercel OCR API',
+      apiUrl: API_URL || 'Application déployée',
+      ocrMode: API_URL ? 'Lecture automatique dédiée' : 'Lecture automatique intégrée',
       platformStatus: 'Active',
     },
   };
@@ -432,8 +432,8 @@ function buildAiUsage(analyses = []) {
     explanationsGenerated: withExplanation.length,
     analysesWithExplanation: withExplanation.length,
     latestAiUse: withExplanation[0]?.createdAt || null,
-    provider: 'GPT-4o',
-    providerSubtitle: 'OpenAI / GitHub Models',
+    provider: 'Assistant intelligent',
+    providerSubtitle: 'Service d’explication',
     model: 'GPT-4o',
     usageByDay,
     latestExplanations: withExplanation.slice(0, 8),
