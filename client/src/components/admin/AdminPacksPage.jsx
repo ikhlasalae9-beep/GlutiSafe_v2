@@ -43,7 +43,7 @@ export default function AdminPacksPage({ users, subscriptions, payments = [], ac
         <Stat label="Free users" value={users.filter((user) => user.packStatus === 'free').length} />
         <Stat label="Pending requests" value={payments.filter((payment) => payment.status === 'pending').length} />
         <Stat label="Active monthly" value={users.filter((user) => user.packStatus === 'active' && user.packType === 'monthly').length} />
-        <Stat label="Active yearly" value={users.filter((user) => user.packStatus === 'active' && user.packType === 'yearly').length} />
+        <Stat label="Active yearly" value={users.filter((user) => user.packStatus === 'active' && user.packType === 'yearly' && isFutureDate(user.packEndAt)).length} />
         <Stat label="Expired users" value={users.filter((user) => user.packStatus === 'expired').length} />
       </section>
 
@@ -213,4 +213,10 @@ function formatDateTime(value) {
   if (!value) return '-';
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+function isFutureDate(value) {
+  if (!value) return false;
+  const date = new Date(value);
+  return !Number.isNaN(date.getTime()) && date.getTime() > Date.now();
 }

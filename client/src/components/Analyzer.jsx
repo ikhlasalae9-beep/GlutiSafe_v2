@@ -319,7 +319,7 @@ function TokenBadge({ tokenInfo }) {
   const isPaid = tokenInfo.packStatus === 'active' && tokenInfo.packType !== 'none';
   const packLabel = tokenInfo.packType === 'yearly' ? 'Pack Annuel' : 'Pack Mensuel';
   const freeLabel = `Pack Gratuit - Tokens restants : ${tokenInfo.remaining}/${tokenInfo.limit} - Reset ${formatTokenReset(tokenInfo.periodEnd)}`;
-  const paidLabel = `${packLabel} actif - Tokens restants : ${tokenInfo.remaining}/${tokenInfo.limit} - Jusqu'au ${formatDate(tokenInfo.periodEnd)}`;
+  const paidLabel = `${packLabel} actif - Tokens restants : ${tokenInfo.remaining}/${tokenInfo.limit} - Jusqu'au ${formatDate(tokenInfo.packEndAt)} - Reset ${formatTokenReset(tokenInfo.periodEnd)}`;
 
   return (
     <div className="mb-5 inline-flex flex-wrap items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-900">

@@ -66,7 +66,7 @@ export async function fetchAdminDashboard() {
   const mainAdmin = users.find((user) => user.role === 'admin');
   const scanStats = buildScanStats(analyses);
   const activeMonthlyCount = users.filter((user) => user.packStatus === 'active' && user.packType === 'monthly').length;
-  const activeYearlyCount = users.filter((user) => user.packStatus === 'active' && user.packType === 'yearly').length;
+  const activeYearlyCount = users.filter((user) => user.packStatus === 'active' && user.packType === 'yearly' && isFutureDate(user.packEndAt)).length;
   const freeUsersCount = users.filter((user) => user.packStatus === 'free').length;
   const pendingPaymentRequestsCount = pendingRequestsCountResult.count || 0;
 
@@ -392,7 +392,7 @@ function buildPackDistribution(users = [], pendingRequestsCount = 0) {
     { label: 'Free', value: users.filter((user) => user.packStatus === 'free').length },
     { label: 'Pending', value: pendingRequestsCount },
     { label: 'Monthly active', value: users.filter((user) => user.packStatus === 'active' && user.packType === 'monthly').length },
-    { label: 'Yearly active', value: users.filter((user) => user.packStatus === 'active' && user.packType === 'yearly').length },
+    { label: 'Yearly active', value: users.filter((user) => user.packStatus === 'active' && user.packType === 'yearly' && isFutureDate(user.packEndAt)).length },
     { label: 'Expired', value: users.filter((user) => user.packStatus === 'expired').length },
     { label: 'Blocked', value: users.filter((user) => user.packStatus === 'blocked').length },
   ];
@@ -472,4 +472,10 @@ function normalizeArray(value) {
 function toDayKey(value) {
   const date = value ? new Date(value) : new Date();
   return Number.isNaN(date.getTime()) ? 'Inconnu' : date.toISOString().slice(0, 10);
+}
+
+function isFutureDate(value) {
+  if (!value) return false;
+  const date = new Date(value);
+  return !Number.isNaN(date.getTime()) && date.getTime() > Date.now();
 }

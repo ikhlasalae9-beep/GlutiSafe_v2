@@ -7,6 +7,7 @@ import { getCurrentProfile, signOut } from '../lib/auth.js';
 import { getHistory, isAlertHistoryItem, isSafeHistoryItem } from '../lib/history.js';
 import { getMyPaymentRequests } from '../lib/payments.js';
 import { formatTokenReset, getTokenSnapshot } from '../lib/packUsage.js';
+import { PACKS } from '../lib/packs.js';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
@@ -187,6 +188,14 @@ function UsageSection({ user, tokenInfo, aiUsage }) {
         <UsageMetric label="Tokens restants" value={remaining} />
         <UsageMetric label="Limite" value={limit} />
       </div>
+      <ul className="mt-5 grid gap-2 rounded-2xl border border-[#dfe8df] bg-white p-4 text-sm font-bold text-slate-700 sm:grid-cols-2">
+        {getUsageFeatures(user, tokenInfo).map((feature) => (
+          <li key={feature} className="flex items-start gap-2">
+            <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#008f45]" aria-hidden="true" />
+            <span>{feature}</span>
+          </li>
+        ))}
+      </ul>
       {isFreeUsage(user, tokenInfo) ? (
         <p className={`mt-4 rounded-2xl border px-4 py-3 text-sm font-black ${Number(aiUsage?.used || 0) >= 5 ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-white text-emerald-800'}`}>
           Assistant IA : {Number(aiUsage?.used || 0)} / 5 messages utilisés
@@ -238,13 +247,21 @@ function getUsageInfoLabel(user, tokenInfo) {
   if (user.packStatus === 'blocked' || tokenInfo.packStatus === 'blocked') return "Votre compte est bloqué. Contactez l'administration.";
   if (user.packStatus === 'pending') return 'Votre demande est en attente de vérification administrateur.';
   if (tokenInfo.packStatus === 'active' && tokenInfo.packType === 'monthly') return `Pack Mensuel actif - Réinitialisation : ${formatResetLabel(tokenInfo.periodStart, tokenInfo.periodEnd)}`;
-  if (tokenInfo.packStatus === 'active' && tokenInfo.packType === 'yearly') return `Pack annuel actif jusqu'au ${formatDate(tokenInfo.periodEnd)}`;
+  if (tokenInfo.packStatus === 'active' && tokenInfo.packType === 'yearly') return `Pack Annuel actif jusqu'au ${formatDate(user.packEndAt)} - Réinitialisation : ${formatResetLabel(tokenInfo.periodStart, tokenInfo.periodEnd)}`;
   if (user.packStatus === 'expired') return 'Pack expiré. Vous utilisez les limites du Pack Gratuit.';
   return `Réinitialisation : ${formatResetLabel(tokenInfo.periodStart, tokenInfo.periodEnd)}`;
 }
 
 function isFreeUsage(user, tokenInfo) {
   return user.packStatus !== 'active' || tokenInfo?.packStatus !== 'active';
+}
+
+function getUsageFeatures(user, tokenInfo) {
+  if (user.packStatus === 'active' && tokenInfo?.packStatus === 'active') {
+    return PACKS.find((pack) => pack.packType === tokenInfo.packType)?.features || PACKS[0].features;
+  }
+
+  return PACKS[0].features;
 }
 
 function formatDate(value) {
@@ -257,9 +274,11 @@ function formatResetLabel(periodStart, periodEnd) {
   if (!periodStart || !periodEnd) return '-';
   const start = new Date(periodStart);
   const end = new Date(periodEnd);
-  const hours = Math.round((end.getTime() - start.getTime()) / 36e5);
+  const windowHours = Math.round((end.getTime() - start.getTime()) / 36e5);
+  const hours = [10, 48, 336, 1440].includes(windowHours) ? windowHours / 2 : windowHours;
   if (hours === 5) return 'toutes les 5h';
-  if (hours === 168) return 'tous les 7 jours';
-  if (hours === 24) return 'toutes les 24h';
+  if (hours === 24) return 'chaque 24 heures';
+  if (hours === 168) return 'chaque 7 jours';
+  if (hours === 720) return 'chaque 30 jours';
   return formatTokenReset(periodEnd);
 }

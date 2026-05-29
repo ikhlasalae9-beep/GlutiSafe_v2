@@ -1,7 +1,7 @@
 import { Save, ShieldCheck, SlidersHorizontal, UserRound, WalletCards } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import AdminStatCard from './AdminStatCard.jsx';
-import { updatePackSettings, updatePaymentSettings } from '../../lib/packs.js';
+import { PACKS, updatePackSettings, updatePaymentSettings } from '../../lib/packs.js';
 
 export default function AdminSettingsPage({ dashboard, onSaved }) {
   const settings = dashboard.settings;
@@ -93,7 +93,7 @@ export default function AdminSettingsPage({ dashboard, onSaved }) {
         </div>
 
         <div className="mt-5 grid gap-5 xl:grid-cols-3">
-          <PackBox title="Pack Gratuit">
+          <PackBox title="Pack Gratuit" features={PACKS.find((pack) => pack.id === 'free')?.features}>
             <NumberField label="Tokens gratuits" value={packForm.free_tokens} onChange={(value) => setPackForm({ ...packForm, free_tokens: value })} />
             <label className="block">
               <span className="text-sm font-bold text-slate-700">Reinitialisation</span>
@@ -109,7 +109,7 @@ export default function AdminSettingsPage({ dashboard, onSaved }) {
             </label>
           </PackBox>
 
-          <PackBox title="Pack Mensuel">
+          <PackBox title="Pack Mensuel" features={PACKS.find((pack) => pack.id === 'monthly')?.features}>
             <NumberField label="Prix mensuel MAD" value={packForm.monthly_price_mad} onChange={(value) => setPackForm({ ...packForm, monthly_price_mad: value })} />
             <NumberField label="Tokens mensuels" value={packForm.monthly_tokens} onChange={(value) => setPackForm({ ...packForm, monthly_tokens: value })} />
             <label className="block">
@@ -127,9 +127,21 @@ export default function AdminSettingsPage({ dashboard, onSaved }) {
             <ReadOnly label="Duree" value="30 jours" />
           </PackBox>
 
-          <PackBox title="Pack Annuel">
+          <PackBox title="Pack Annuel" features={PACKS.find((pack) => pack.id === 'yearly')?.features}>
             <NumberField label="Prix annuel MAD" value={packForm.yearly_price_mad} onChange={(value) => setPackForm({ ...packForm, yearly_price_mad: value })} />
             <NumberField label="Tokens annuels" value={packForm.yearly_tokens} onChange={(value) => setPackForm({ ...packForm, yearly_tokens: value })} />
+            <label className="block">
+              <span className="text-sm font-bold text-slate-700">Réinitialisation des tokens annuels</span>
+              <select
+                value={String(packForm.yearly_reset_hours || 168)}
+                onChange={(event) => setPackForm({ ...packForm, yearly_reset_hours: event.target.value })}
+                className="mt-2 w-full rounded-2xl border border-[#dfe8df] bg-[#f7f8f6] px-4 py-3 text-sm font-bold outline-none"
+              >
+                <option value="168">Chaque 7 jours</option>
+                <option value="720">Chaque 30 jours</option>
+              </select>
+            </label>
+            <NumberField label="Messages IA annuels" value={packForm.yearly_ai_messages_limit ?? 500} onChange={(value) => setPackForm({ ...packForm, yearly_ai_messages_limit: value })} />
             <ReadOnly label="Duree" value="365 jours" />
           </PackBox>
         </div>
@@ -160,11 +172,21 @@ function NumberField({ label, value = 0, onChange }) {
   );
 }
 
-function PackBox({ title, children }) {
+function PackBox({ title, features = [], children }) {
   return (
     <section className="rounded-[1.25rem] border border-[#dfe8df] bg-[#f7f8f6] p-4">
       <h3 className="text-sm font-black uppercase tracking-[0.12em] text-[#008f45]">{title}</h3>
       <div className="mt-4 grid gap-4">{children}</div>
+      {features.length ? (
+        <ul className="mt-4 grid gap-2 rounded-2xl border border-[#dfe8df] bg-white p-3 text-xs font-bold text-slate-700">
+          {features.map((feature) => (
+            <li key={feature} className="flex items-start gap-2">
+              <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#008f45]" aria-hidden="true" />
+              <span>{feature}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </section>
   );
 }
@@ -186,6 +208,8 @@ function parsePackForm(form) {
     monthly_reset_hours: Number(form.monthly_reset_hours ?? 24),
     monthly_ai_messages_limit: Number(form.monthly_ai_messages_limit ?? 100),
     yearly_tokens: Number(form.yearly_tokens),
+    yearly_reset_hours: Number(form.yearly_reset_hours ?? 168),
+    yearly_ai_messages_limit: Number(form.yearly_ai_messages_limit ?? 500),
     monthly_price_mad: Number(form.monthly_price_mad),
     yearly_price_mad: Number(form.yearly_price_mad),
   };
@@ -200,6 +224,10 @@ function parsePackForm(form) {
 
   if (![24, 168].includes(payload.monthly_reset_hours)) {
     throw new Error('La reinitialisation mensuelle doit etre 24h ou 7 jours.');
+  }
+
+  if (![168, 720].includes(payload.yearly_reset_hours)) {
+    throw new Error('La reinitialisation annuelle doit etre 7 jours ou 30 jours.');
   }
 
   return payload;

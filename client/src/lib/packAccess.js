@@ -4,6 +4,7 @@ import { requireSupabaseClient } from './supabaseClient.js';
 
 const TOKEN_LIMIT_MESSAGE = 'Vous avez utilise tous vos tokens. Reessayez apres la reinitialisation ou passez a un pack premium.';
 const MONTHLY_TOKEN_LIMIT_MESSAGE = 'Vous avez utilisé tous vos tokens du Pack Mensuel. Vos tokens seront renouvelés selon votre période de réinitialisation.';
+const YEARLY_TOKEN_LIMIT_MESSAGE = 'Vous avez utilisé tous vos tokens du Pack Annuel. Vos tokens seront renouvelés selon votre période de réinitialisation.';
 
 export function normalizeProfilePack(profile = {}) {
   const status = getEffectivePackStatus(profile);
@@ -35,6 +36,7 @@ export async function getUsageInfo(userId, profile, settings) {
       remaining: 0,
       packStatus: 'blocked',
       packType: 'none',
+      packEndAt: null,
       periodStart: null,
       periodEnd: null,
       isPaid: false,
@@ -44,6 +46,7 @@ export async function getUsageInfo(userId, profile, settings) {
   const now = new Date();
   const freeResetHours = [5, 24, 168].includes(Number(settings.free_reset_hours)) ? Number(settings.free_reset_hours) : 24;
   const monthlyResetHours = [24, 168].includes(Number(settings.monthly_reset_hours)) ? Number(settings.monthly_reset_hours) : 24;
+  const yearlyResetHours = [168, 720].includes(Number(settings.yearly_reset_hours)) ? Number(settings.yearly_reset_hours) : 168;
   let packStatus = 'free';
   let packType = 'none';
   let limit = Number(settings.free_tokens || DEFAULT_PACK_SETTINGS.free_tokens);
@@ -63,12 +66,13 @@ export async function getUsageInfo(userId, profile, settings) {
       message = MONTHLY_TOKEN_LIMIT_MESSAGE;
     } else {
       limit = Number(settings.yearly_tokens || DEFAULT_PACK_SETTINGS.yearly_tokens);
-      periodStart = pack.startAt || now.toISOString();
-      periodEnd = pack.endAt;
+      periodStart = new Date(now.getTime() - yearlyResetHours * 60 * 60 * 1000).toISOString();
+      periodEnd = new Date(now.getTime() + yearlyResetHours * 60 * 60 * 1000).toISOString();
+      message = YEARLY_TOKEN_LIMIT_MESSAGE;
     }
   }
 
-  const used = await countAnalyses(userId, periodStart, packType === 'yearly' ? periodEnd : null);
+  const used = await countAnalyses(userId, periodStart, null);
   const remaining = Math.max(limit - used, 0);
 
   return {
@@ -79,6 +83,7 @@ export async function getUsageInfo(userId, profile, settings) {
     remaining,
     packStatus,
     packType,
+    packEndAt: isPaid ? pack.endAt : null,
     periodStart,
     periodEnd,
     isPaid,

@@ -7,6 +7,8 @@ export const DEFAULT_PACK_SETTINGS = {
   monthly_reset_hours: 24,
   monthly_ai_messages_limit: 100,
   yearly_tokens: 1500,
+  yearly_reset_hours: 168,
+  yearly_ai_messages_limit: 500,
   monthly_price_mad: 29,
   yearly_price_mad: 249,
 };
@@ -55,7 +57,7 @@ export const PACKS = [
     priceKey: 'yearly_price_mad',
     cadence: '/ 365 jours',
     scansKey: 'yearly_tokens',
-    features: ['OCR avancé', 'Détection gluten', 'Explication IA', 'Assistant IA', 'Historique complet', 'Images produits dans l’historique', 'Plus de tokens'],
+    features: ['OCR avancé', 'Détection gluten', 'Explication IA', 'Assistant IA', 'Historique complet', 'Images produits dans l’historique', 'Maximum de tokens', 'Accès premium pendant 365 jours'],
     cta: 'Demander ce pack',
     highlighted: true,
   },
@@ -207,6 +209,8 @@ export function normalizePackSettings(settings = {}) {
     monthly_reset_hours: [24, 168].includes(Number(settings.monthly_reset_hours)) ? Number(settings.monthly_reset_hours) : 24,
     monthly_ai_messages_limit: numberOrDefault(settings.monthly_ai_messages_limit, DEFAULT_PACK_SETTINGS.monthly_ai_messages_limit),
     yearly_tokens: numberOrDefault(settings.yearly_tokens, DEFAULT_PACK_SETTINGS.yearly_tokens),
+    yearly_reset_hours: [168, 720].includes(Number(settings.yearly_reset_hours)) ? Number(settings.yearly_reset_hours) : 168,
+    yearly_ai_messages_limit: numberOrDefault(settings.yearly_ai_messages_limit, DEFAULT_PACK_SETTINGS.yearly_ai_messages_limit),
     monthly_price_mad: numberOrDefault(settings.monthly_price_mad, DEFAULT_PACK_SETTINGS.monthly_price_mad),
     yearly_price_mad: numberOrDefault(settings.yearly_price_mad, DEFAULT_PACK_SETTINGS.yearly_price_mad),
   };
@@ -227,6 +231,7 @@ export function formatResetDuration(hours) {
   const value = Number(hours);
   if (value === 5) return '5 heures';
   if (value === 168) return '7 jours';
+  if (value === 720) return '30 jours';
   return '24 heures';
 }
 
