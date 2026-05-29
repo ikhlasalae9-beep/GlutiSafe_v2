@@ -54,8 +54,12 @@ export default function AuthCallback() {
       }
     }
 
-    const subscription = supabase?.auth.onAuthStateChange((_event, session) => {
+    const subscription = supabase?.auth.onAuthStateChange((event, session) => {
       if (!active || !session) return;
+      if (event === 'PASSWORD_RECOVERY') {
+        navigate('/reset-password', { replace: true });
+        return;
+      }
       setState({ status: 'success', session, error: '' });
     }).data?.subscription;
 

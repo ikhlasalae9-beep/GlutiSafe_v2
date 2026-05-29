@@ -321,7 +321,7 @@ function getUsageInfoLabel(user, tokenInfo) {
   if (tokenInfo.packStatus === 'active' && tokenInfo.packType === 'monthly') return `Pack Mensuel actif - Réinitialisation : ${formatResetLabel(tokenInfo.periodStart, tokenInfo.periodEnd)}`;
   if (tokenInfo.packStatus === 'active' && tokenInfo.packType === 'yearly') return `Pack Annuel actif jusqu'au ${formatDate(user.packEndAt)} - Réinitialisation : ${formatResetLabel(tokenInfo.periodStart, tokenInfo.periodEnd)}`;
   if (user.packStatus === 'expired') return 'Pack expiré. Vous utilisez les limites du Pack Gratuit.';
-  return `Réinitialisation : ${formatResetLabel(tokenInfo.periodStart, tokenInfo.periodEnd)}`;
+  return `Prochaine réinitialisation : ${tokenInfo.resetAt ? formatResetDateTime(tokenInfo.resetAt) : 'après votre première analyse.'}`;
 }
 
 function isFreeUsage(user, tokenInfo) {
@@ -340,6 +340,12 @@ function formatDate(value) {
   if (!value) return '-';
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString('fr-FR');
+}
+
+function formatResetDateTime(value) {
+  if (!value) return '-';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
 }
 
 function formatResetLabel(periodStart, periodEnd) {

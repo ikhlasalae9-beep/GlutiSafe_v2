@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Keyboard, ScanLine, ShieldCheck } from 'lucide-react';
+﻿import { AlertTriangle, CheckCircle2, Keyboard, ScanLine, ShieldCheck } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { fullAnalysis } from '../lib/api.js';
 import { extractTextWithEasyOCR } from '../lib/ocrApi.js';
@@ -27,6 +27,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
   const [isExtracting, setIsExtracting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState('');
+  const [tokenLimitInfo, setTokenLimitInfo] = useState(null);
   const [saveWarning, setSaveWarning] = useState('');
   const [saved, setSaved] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -58,6 +59,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
     setOcrWarning('');
     setOcrEngine('');
     setAnalysisError('');
+    setTokenLimitInfo(null);
     setSaveWarning('');
     setSaved(false);
     onResult(null);
@@ -69,6 +71,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
     setOcrWarning('');
     setOcrEngine('');
     setAnalysisError('');
+    setTokenLimitInfo(null);
     setSaveWarning('');
     setProgress(0);
     onResult(null);
@@ -90,6 +93,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
     setOcrError('');
     setOcrWarning('');
     setOcrEngine('');
+    setTokenLimitInfo(null);
     setProgress(0);
     setSaved(false);
     onResult(null);
@@ -104,6 +108,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
     setOcrError('');
     setOcrWarning('');
     setOcrEngine('');
+    setTokenLimitInfo(null);
     setProgress(10);
 
     try {
@@ -114,10 +119,15 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
       setProgress(100);
       setText(extracted);
       if (!extracted) {
-        setOcrError('Aucun texte clair détecté. Vous pouvez saisir les ingrédients manuellement.');
+        setOcrError('Aucun texte clair dÃ©tectÃ©. Vous pouvez saisir les ingrÃ©dients manuellement.');
       }
     } catch (error) {
-      setOcrWarning(error.message);
+      if (error.usage?.packStatus === 'free' && error.usage?.remaining <= 0) {
+        setTokenLimitInfo(error.usage);
+        setOcrWarning('');
+      } else {
+        setOcrWarning(error.message);
+      }
       setProgress(0);
     } finally {
       setIsExtracting(false);
@@ -136,6 +146,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
   async function handleAnalyze() {
     setIsAnalyzing(true);
     setAnalysisError('');
+    setTokenLimitInfo(null);
     setSaveWarning('');
     setSaved(false);
 
@@ -156,7 +167,12 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
         productName: savedAnalysis?.productName || productName || 'Produit sans nom',
       });
     } catch (error) {
-      setAnalysisError(error.message || "Impossible d'analyser les ingrédients pour le moment.");
+      if (error.usage?.packStatus === 'free' && error.usage?.remaining <= 0) {
+        setTokenLimitInfo(error.usage);
+        setAnalysisError('Vous avez utilisé tous vos tokens gratuits.');
+      } else {
+        setAnalysisError(error.message || "Impossible d'analyser les ingrédients pour le moment.");
+      }
     } finally {
       setIsAnalyzing(false);
     }
@@ -172,15 +188,15 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
       <div className="mb-8 grid gap-5 lg:grid-cols-[1fr_0.78fr] lg:items-end">
         <div>
           <p className="brand-kicker">Analyse produit</p>
-          <h1 className="mt-3 brand-heading">Scannez une étiquette, vérifiez le risque gluten.</h1>
+          <h1 className="mt-3 brand-heading">Scannez une Ã©tiquette, vÃ©rifiez le risque gluten.</h1>
           <p className="mt-4 brand-copy max-w-3xl">
-            Importez une photo, ouvrez la caméra ou saisissez les ingrédients. GlutiSafe garde le même flux OCR et le
-            même moteur de règles, avec une interface plus claire.
+            Importez une photo, ouvrez la camÃ©ra ou saisissez les ingrÃ©dients. GlutiSafe garde le mÃªme flux OCR et le
+            mÃªme moteur de rÃ¨gles, avec une interface plus claire.
           </p>
         </div>
         <div className="grid grid-cols-3 gap-2 rounded-[1.5rem] border border-[#dfe8df] bg-white/80 p-3 shadow-sm">
           <MiniMetric icon={ScanLine} label="OCR" value={ocrEngine || 'EasyOCR'} />
-          <MiniMetric icon={ShieldCheck} label="Verdict" value="Règles" />
+          <MiniMetric icon={ShieldCheck} label="Verdict" value="RÃ¨gles" />
           <MiniMetric icon={CheckCircle2} label="Langues" value="FR EN ES" />
         </div>
       </div>
@@ -196,7 +212,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
                 <span className="text-sm font-bold text-slate-700">Nom du produit (optionnel)</span>
                 <input
                   className="field-control mt-2"
-                  placeholder="Ex: Yaourt fraise, Pâtes Barilla, Biscuit sans gluten…"
+                  placeholder="Ex: Yaourt fraise, PÃ¢tes Barilla, Biscuit sans glutenâ€¦"
                   value={productName}
                   onChange={(event) => setProductName(event.target.value)}
                 />
@@ -214,7 +230,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
                   {ocrEngine && !ocrWarning ? (
                     <p className="inline-flex min-h-10 items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 text-sm font-bold text-emerald-800">
                       <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-                      OCR utilisé : {ocrEngine}
+                      OCR utilisÃ© : {ocrEngine}
                     </p>
                   ) : null}
                   <OcrProgress progress={progress} error={ocrError} active={isExtracting} />
@@ -226,7 +242,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
                           <p className="text-sm font-bold leading-6 text-amber-900">{ocrWarning}</p>
                           <button type="button" onClick={switchToManualInput} className="secondary-btn mt-4">
                             <Keyboard size={18} aria-hidden="true" />
-                            Passer à la saisie manuelle
+                            Passer Ã  la saisie manuelle
                           </button>
                         </div>
                       </div>
@@ -246,7 +262,9 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
                   loading={isAnalyzing}
                 />
               )}
-              {analysisError ? (
+              {tokenLimitInfo ? (
+                <FreeLimitCard usage={tokenLimitInfo} onNavigate={onNavigate} />
+              ) : analysisError ? (
                 <p className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">{analysisError}</p>
               ) : null}
               {saveWarning ? (
@@ -270,14 +288,14 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
             />
           ) : (
             <div className="surface-card p-6">
-              <p className="brand-kicker">Résultat</p>
-              <h2 className="mt-2 text-2xl font-extrabold text-[#1d252b]">Prêt pour l'analyse</h2>
+              <p className="brand-kicker">RÃ©sultat</p>
+              <h2 className="mt-2 text-2xl font-extrabold text-[#1d252b]">PrÃªt pour l'analyse</h2>
               <p className="mt-3 text-sm leading-6 text-slate-600">
-                Le résultat apparaîtra ici après l'analyse, avec le verdict, les mots détectés et une explication prudente.
+                Le rÃ©sultat apparaÃ®tra ici aprÃ¨s l'analyse, avec le verdict, les mots dÃ©tectÃ©s et une explication prudente.
               </p>
               <div className="mt-6 rounded-[1.5rem] border border-dashed border-[#a8cfa5] bg-[#f7f8f6] p-6 text-center">
                 <ShieldCheck className="mx-auto h-10 w-10 text-[#a8cfa5]" aria-hidden="true" />
-                <p className="mt-3 text-sm font-semibold text-slate-500">Aucun verdict affiché avant l'analyse.</p>
+                <p className="mt-3 text-sm font-semibold text-slate-500">Aucun verdict affichÃ© avant l'analyse.</p>
               </div>
             </div>
           )}
@@ -318,7 +336,7 @@ function MiniMetric({ icon: Icon, label, value }) {
 function TokenBadge({ tokenInfo }) {
   const isPaid = tokenInfo.packStatus === 'active' && tokenInfo.packType !== 'none';
   const packLabel = tokenInfo.packType === 'yearly' ? 'Pack Annuel' : 'Pack Mensuel';
-  const freeLabel = `Pack Gratuit - Tokens restants : ${tokenInfo.remaining}/${tokenInfo.limit} - Reset ${formatTokenReset(tokenInfo.periodEnd)}`;
+  const freeLabel = `Pack Gratuit - Tokens restants : ${tokenInfo.remaining}/${tokenInfo.limit} - Reset ${formatTokenReset(tokenInfo.resetAt || tokenInfo.periodEnd)}`;
   const paidLabel = `${packLabel} actif - Tokens restants : ${tokenInfo.remaining}/${tokenInfo.limit} - Jusqu'au ${formatDate(tokenInfo.packEndAt)} - Reset ${formatTokenReset(tokenInfo.periodEnd)}`;
 
   return (
@@ -326,6 +344,34 @@ function TokenBadge({ tokenInfo }) {
       <span>{isPaid ? paidLabel : freeLabel}</span>
     </div>
   );
+}
+
+function FreeLimitCard({ usage, onNavigate }) {
+  return (
+    <div className="rounded-[1.25rem] border border-amber-200 bg-amber-50 p-5">
+      <p className="text-base font-black text-amber-950">Vous avez utilisé tous vos tokens gratuits.</p>
+      <p className="mt-2 text-sm font-bold leading-6 text-amber-900">
+        Vos tokens seront renouvelés {formatResetSentence(usage.resetAt || usage.periodEnd)}.
+      </p>
+      <p className="mt-1 text-sm font-bold leading-6 text-amber-900">Passez à un pack premium pour continuer immédiatement.</p>
+      <button type="button" onClick={() => onNavigate?.('/packs')} className="mt-4 rounded-2xl bg-[#008f45] px-5 py-3 text-sm font-black text-white transition hover:bg-[#004b3a]">
+        Voir les packs
+      </button>
+    </div>
+  );
+}
+
+function formatResetSentence(value) {
+  if (!value) return 'après la prochaine réinitialisation';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'après la prochaine réinitialisation';
+  const today = new Date();
+  const tomorrow = new Date();
+  tomorrow.setDate(today.getDate() + 1);
+  const time = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  if (date.toDateString() === today.toDateString()) return `aujourd'hui à ${time}`;
+  if (date.toDateString() === tomorrow.toDateString()) return `demain à ${time}`;
+  return `le ${date.toLocaleDateString('fr-FR')} à ${time}`;
 }
 
 function formatDate(value) {
@@ -338,7 +384,8 @@ function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(new Error("Impossible de préparer l'aperçu de l'image."));
+    reader.onerror = () => reject(new Error("Impossible de prÃ©parer l'aperÃ§u de l'image."));
     reader.readAsDataURL(file);
   });
 }
+

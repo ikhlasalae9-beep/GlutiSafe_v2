@@ -9,7 +9,9 @@ export async function assertCanAnalyze() {
 
   const usage = await canRunAnalysis(profile.id);
   if (!usage.allowed) {
-    throw new Error(usage.message || 'Vous avez utilise tous vos tokens. Reessayez apres la reinitialisation ou passez a un pack premium.');
+    const error = new Error(usage.message || 'Vous avez utilise tous vos tokens. Reessayez apres la reinitialisation ou passez a un pack premium.');
+    error.usage = usage;
+    throw error;
   }
 
   return usage;

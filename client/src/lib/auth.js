@@ -61,6 +61,38 @@ export async function loginUser({ email, password }) {
   return toAppUser(data.user);
 }
 
+export async function signInWithOAuthProvider(provider) {
+  const client = requireSupabaseClient();
+  const { error } = await client.auth.signInWithOAuth({
+    provider,
+    options: {
+      redirectTo: `${window.location.origin}/auth/callback`,
+    },
+  });
+
+  if (error) {
+    if (provider === 'apple') throw new Error('Connexion Apple non configurée pour le moment.');
+    throw new Error(cleanAuthError(error));
+  }
+}
+
+export async function requestPasswordReset(email) {
+  const client = requireSupabaseClient();
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail) throw new Error('Veuillez saisir votre adresse email.');
+
+  const { error } = await client.auth.resetPasswordForEmail(normalizedEmail, {
+    redirectTo: `${window.location.origin}/reset-password`,
+  });
+  if (error) throw new Error(cleanAuthError(error));
+}
+
+export async function updatePassword(newPassword) {
+  const client = requireSupabaseClient();
+  const { error } = await client.auth.updateUser({ password: newPassword });
+  if (error) throw new Error(cleanAuthError(error));
+}
+
 export async function signOut() {
   if (!supabase) return;
   await supabase.auth.signOut();

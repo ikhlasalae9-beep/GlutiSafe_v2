@@ -7,10 +7,12 @@ import AdminPage from './pages/AdminPage.jsx';
 import AnalysisPage from './pages/AnalysisPage.jsx';
 import AuthCallback from './pages/AuthCallback.jsx';
 import AuthPage from './pages/AuthPage.jsx';
+import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx';
 import HistoryPage from './pages/HistoryPage.jsx';
 import HomePage from './pages/HomePage.jsx';
 import PacksPage from './pages/PacksPage.jsx';
 import ProfilePage from './pages/ProfilePage.jsx';
+import ResetPasswordPage from './pages/ResetPasswordPage.jsx';
 
 export default function App() {
   return (
@@ -34,6 +36,8 @@ export default function App() {
         <Route path="/register" element={<AuthPage mode="register" />} />
         <Route path="/signup" element={<AuthPage mode="register" />} />
         <Route path="/login" element={<AuthPage mode="login" />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/admin-secure" element={<AdminLoginPage />} />
         <Route path="/admin-login" element={<Navigate to="/" replace />} />

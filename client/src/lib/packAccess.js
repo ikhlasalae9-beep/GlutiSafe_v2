@@ -2,7 +2,7 @@ import { getCurrentProfile } from './auth.js';
 import { DEFAULT_PACK_SETTINGS, getEffectivePackStatus, normalizePackSettings, normalizePackType } from './packs.js';
 import { requireSupabaseClient } from './supabaseClient.js';
 
-const TOKEN_LIMIT_MESSAGE = 'Vous avez utilise tous vos tokens. Reessayez apres la reinitialisation ou passez a un pack premium.';
+const TOKEN_LIMIT_MESSAGE = 'Vous avez utilisé tous vos tokens gratuits.';
 const MONTHLY_TOKEN_LIMIT_MESSAGE = 'Vous avez utilisé tous vos tokens du Pack Mensuel. Vos tokens seront renouvelés selon votre période de réinitialisation.';
 const YEARLY_TOKEN_LIMIT_MESSAGE = 'Vous avez utilisé tous vos tokens du Pack Annuel. Vos tokens seront renouvelés selon votre période de réinitialisation.';
 
@@ -54,6 +54,7 @@ export async function getUsageInfo(userId, profile, settings) {
   let periodStart = new Date(now.getTime() - freeResetHours * 60 * 60 * 1000).toISOString();
   let isPaid = false;
   let message = TOKEN_LIMIT_MESSAGE;
+  let resetAt = null;
 
   if (pack.active && pack.endAt && new Date(pack.endAt).getTime() > now.getTime()) {
     packStatus = 'active';
@@ -72,7 +73,14 @@ export async function getUsageInfo(userId, profile, settings) {
     }
   }
 
-  const used = await countAnalyses(userId, periodStart, null);
+  const [used, earliestAnalysisAt] = await Promise.all([
+    countAnalyses(userId, periodStart, null),
+    packStatus === 'free' ? getEarliestAnalysisAt(userId, periodStart) : Promise.resolve(null),
+  ]);
+  if (packStatus === 'free' && earliestAnalysisAt) {
+    resetAt = new Date(new Date(earliestAnalysisAt).getTime() + freeResetHours * 60 * 60 * 1000).toISOString();
+    periodEnd = resetAt;
+  }
   const remaining = Math.max(limit - used, 0);
 
   return {
@@ -86,6 +94,7 @@ export async function getUsageInfo(userId, profile, settings) {
     packEndAt: isPaid ? pack.endAt : null,
     periodStart,
     periodEnd,
+    resetAt,
     isPaid,
   };
 }
@@ -112,4 +121,18 @@ async function countAnalyses(userId, startIso, endIso) {
   const { count, error } = await query;
   if (error) throw new Error(error.message || 'Impossible de verifier votre limite de scans.');
   return count || 0;
+}
+
+async function getEarliestAnalysisAt(userId, startIso) {
+  const { data, error } = await requireSupabaseClient()
+    .from('analyses')
+    .select('created_at')
+    .eq('user_id', userId)
+    .gte('created_at', startIso)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message || 'Impossible de verifier votre reinitialisation.');
+  return data?.created_at || null;
 }
