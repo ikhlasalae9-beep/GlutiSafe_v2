@@ -15,11 +15,12 @@ export default function ForgotPasswordPage() {
     setError('');
     setSuccess('');
     setLoading(true);
+
     try {
       await requestPasswordReset(email);
-      setSuccess('Un lien de réinitialisation a été envoyé si ce compte existe.');
+      setSuccess('Si un compte existe avec cette adresse, un lien de réinitialisation a été envoyé.');
     } catch (resetError) {
-      setError(resetError.message || 'Impossible d’envoyer le lien.');
+      setError(resetError.message || "Impossible d'envoyer le lien. Veuillez réessayer.");
     } finally {
       setLoading(false);
     }
@@ -27,7 +28,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <main className="min-h-screen bg-[#f7f8f6] px-4 py-8 text-[#1d252b] sm:px-6">
-      <section className="surface-card mx-auto mt-16 w-full max-w-md p-6 sm:p-8">
+      <section className="surface-card mx-auto mt-16 w-full max-w-md p-6 shadow-[0_24px_70px_rgba(29,37,43,0.12)] sm:p-8">
         <div className="mb-8 flex items-center gap-3">
           <img src="/logo.png" alt="Logo GlutiSafe" className="h-12 w-12 rounded-2xl bg-white object-contain shadow-sm ring-1 ring-[#dfe8df]" />
           <div>
@@ -35,21 +36,29 @@ export default function ForgotPasswordPage() {
             <p className="text-sm text-slate-500">Réinitialiser le mot de passe</p>
           </div>
         </div>
+
         <h1 className="text-3xl font-black text-[#1d252b]">Réinitialiser le mot de passe</h1>
+        <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
+          Entrez votre adresse e-mail. Nous vous enverrons un lien sécurisé pour réinitialiser votre mot de passe.
+        </p>
+
         <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
           <label className="block">
             <span className="text-sm font-bold text-slate-700">Email</span>
             <span className="mt-2 flex items-center gap-3 rounded-2xl border border-[#dfe8df] bg-white px-4 py-3 focus-within:border-[#008f45] focus-within:ring-4 focus-within:ring-[#a8cfa5]/35">
               <Mail className="h-5 w-5 text-slate-400" aria-hidden="true" />
-              <input className="w-full bg-transparent outline-none" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="vous@example.com" />
+              <input className="w-full bg-transparent outline-none placeholder:text-slate-400" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="vous@example.com" />
             </span>
           </label>
+
           {error ? <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">{error}</p> : null}
           {success ? <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">{success}</p> : null}
+
           <Button className="w-full" type="submit" disabled={loading} icon={ShieldCheck}>
-            {loading ? 'Envoi en cours...' : 'Envoyer le lien de réinitialisation'}
+            {loading ? 'Envoi en cours...' : 'Envoyer le lien'}
           </Button>
         </form>
+
         <p className="mt-6 text-center text-sm">
           <Link className="font-bold text-[#008f45] hover:text-[#004b3a]" to="/login">
             Retour à la connexion

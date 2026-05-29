@@ -25,8 +25,9 @@ export default function AuthCallback() {
       }
 
       try {
-        const params = new URLSearchParams(window.location.search);
-        const code = params.get('code');
+        const code = getUrlParam('code');
+        const callbackType = getUrlParam('type');
+        const isRecovery = callbackType === 'recovery';
 
         if (code) {
           const { error } = await supabase.auth.exchangeCodeForSession(code);
@@ -41,6 +42,10 @@ export default function AuthCallback() {
         setState({ status: session ? 'success' : 'no-session', session, error: '' });
 
         if (session) {
+          if (isRecovery) {
+            navigate('/reset-password', { replace: true });
+            return;
+          }
           redirectTimer = window.setTimeout(() => navigate('/analyse', { replace: true }), 3000);
         }
       } catch (error) {
@@ -57,6 +62,7 @@ export default function AuthCallback() {
     const subscription = supabase?.auth.onAuthStateChange((event, session) => {
       if (!active || !session) return;
       if (event === 'PASSWORD_RECOVERY') {
+        if (redirectTimer) window.clearTimeout(redirectTimer);
         navigate('/reset-password', { replace: true });
         return;
       }
@@ -118,4 +124,10 @@ export default function AuthCallback() {
       </div>
     </main>
   );
+}
+
+function getUrlParam(name) {
+  const searchParams = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  return searchParams.get(name) || hashParams.get(name);
 }

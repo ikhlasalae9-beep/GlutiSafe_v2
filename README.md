@@ -127,39 +127,17 @@ In Supabase Dashboard -> Authentication -> URL Configuration:
 - Redirect URLs:
   - `https://gluti-safe-v2.vercel.app/**`
   - `http://localhost:5173/**`
-  - `https://gluti-safe-v2.vercel.app/reset-password`
 
-### Google OAuth
-
-To enable Google login/signup:
-
-1. Supabase Dashboard -> Authentication -> Providers -> Google.
-2. Enable Google.
-3. Add the Google Client ID and Client Secret.
-4. In Google Cloud Console, add the Supabase callback URL shown on the Google provider page as an authorized redirect URI.
-5. GlutiSafe uses `window.location.origin + '/auth/callback'` as the OAuth redirect destination.
-
-### Apple OAuth
-
-To enable Apple login/signup:
-
-1. Supabase Dashboard -> Authentication -> Providers -> Apple.
-2. Configure the Apple credentials from your Apple Developer account.
-3. Add the required redirect URL to the Supabase allow list.
-4. GlutiSafe uses `/auth/callback` as the OAuth redirect destination.
-
-If Apple is not configured yet, the app shows a clean "Connexion Apple non configurée pour le moment." message.
+GlutiSafe MVP authentication is email/password only. Google and Apple OAuth are not enabled in the app.
 
 ### Password Reset
 
 Password reset uses Supabase Auth:
 
-1. Add these redirect URLs in Supabase Authentication URL Configuration:
-   - `https://gluti-safe-v2.vercel.app/reset-password`
-   - `https://gluti-safe-v2.vercel.app/**`
-   - `http://localhost:5173/**`
-2. Users request a reset from `/forgot-password`.
-3. Reset links redirect to `/reset-password`, where the user sets a new password.
+1. Users request a reset from `/forgot-password`.
+2. The app calls `resetPasswordForEmail` with ``redirectTo: `${window.location.origin}/reset-password` ``.
+3. The password reset email template should use `{{ .ConfirmationURL }}`.
+4. Reset links establish a Supabase recovery session and redirect to `/reset-password`, where the user sets a new password with `supabase.auth.updateUser`.
 
 ## Vercel Deployment
 
