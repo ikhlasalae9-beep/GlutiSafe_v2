@@ -11,9 +11,7 @@ export default function ImageUploader({ mode, preview, isExtracting, onFileChang
             <Camera className="h-8 w-8" aria-hidden="true" />
           </span>
           <h3 className="mt-5 text-xl font-extrabold text-[#1d252b]">Prendre une photo</h3>
-          <p className="mt-2 max-w-sm text-sm leading-6 text-slate-600">
-            Utilisez une photo nette de la liste des ingrédients.
-          </p>
+          <p className="mt-2 max-w-sm text-sm leading-6 text-slate-600">Utilisez une photo nette et proche de la liste des ingrédients.</p>
           <button type="button" onClick={onCameraOpen} className="primary-btn mt-5">
             <Camera className="h-4 w-4" aria-hidden="true" />
             Prendre une photo
@@ -25,9 +23,7 @@ export default function ImageUploader({ mode, preview, isExtracting, onFileChang
             <UploadCloud className="h-8 w-8" aria-hidden="true" />
           </span>
           <span className="mt-5 text-xl font-extrabold text-[#1d252b]">Importer une image</span>
-          <span className="mt-2 max-w-sm text-sm leading-6 text-slate-600">
-            Utilisez une photo nette de la liste des ingrédients.
-          </span>
+          <span className="mt-2 max-w-sm text-sm leading-6 text-slate-600">Utilisez une photo nette et proche de la liste des ingrédients.</span>
           <span className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-bold text-[#008f45] shadow-sm ring-1 ring-[#dfe8df]">
             <ImagePlus className="h-4 w-4" aria-hidden="true" />
             Importer une image
@@ -47,12 +43,7 @@ export default function ImageUploader({ mode, preview, isExtracting, onFileChang
             </div>
           </div>
         )}
-        <button
-          type="button"
-          onClick={onExtract}
-          disabled={!preview || isExtracting}
-          className="primary-btn mt-4 w-full"
-        >
+        <button type="button" onClick={onExtract} disabled={!preview || isExtracting} className="primary-btn mt-4 w-full">
           <ScanText size={19} aria-hidden="true" />
           {isExtracting ? 'Lecture en cours...' : 'Lire l’étiquette'}
         </button>

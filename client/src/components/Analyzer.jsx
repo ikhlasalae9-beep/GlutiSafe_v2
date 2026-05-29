@@ -127,12 +127,16 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
       const result = await extractTextWithEasyOCR(selectedImage);
       if (extractionSelectionId !== imageSelectionIdRef.current || selectedImageRef.current !== selectedImage) return;
       const extracted = result.text;
-      setOcrEngine('done');
-      setProgress(100);
       setText(extracted);
-      if (!extracted) {
-        setOcrWarning('Texte peu lisible. Essayez une photo plus proche et plus nette, ou corrigez les ingrédients manuellement.');
-      } else if (result.lowConfidence) {
+      if (extracted.trim().length >= 5) {
+        setOcrEngine('done');
+        setProgress(100);
+      } else {
+        setOcrEngine('');
+        setProgress(0);
+        setOcrError('Nous n’avons pas pu lire suffisamment de texte sur cette image. Essayez une photo plus proche et plus nette, ou saisissez les ingrédients manuellement.');
+      }
+      if (extracted.trim().length >= 5 && result.lowConfidence) {
         setOcrWarning('Texte peu lisible. Essayez une photo plus proche et plus nette, ou corrigez les ingrédients manuellement.');
       }
     } catch (error) {
@@ -141,7 +145,8 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
         setTokenLimitInfo(error.usage);
         setOcrWarning('');
       } else {
-        setOcrWarning('Nous n’avons pas pu lire automatiquement cette image. Essayez avec une photo plus nette ou saisissez les ingrédients manuellement.');
+        const guidance = error.guidance ? ` ${error.guidance}` : '';
+        setOcrError(`${error.message || 'Nous n’avons pas pu lire suffisamment de texte sur cette image. Essayez une photo plus proche et plus nette, ou saisissez les ingrédients manuellement.'}${guidance}`);
       }
       setProgress(0);
     } finally {

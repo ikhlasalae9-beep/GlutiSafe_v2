@@ -1,6 +1,6 @@
 import { RotateCcw, ShieldCheck } from 'lucide-react';
 
-export default function ExtractedTextEditor({ title = 'Corriger le texte détecté', text, onChange, onAnalyze, onReset, loading }) {
+export default function ExtractedTextEditor({ title = 'Texte détecté', text, onChange, onAnalyze, onReset, loading }) {
   return (
     <div className="soft-card p-5">
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
