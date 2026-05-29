@@ -27,7 +27,7 @@ const MAX_MESSAGE_LENGTH = 1200;
 const OCR_TEXT_EMPTY_RESPONSE = {
   success: false,
   error: 'OCR_TEXT_EMPTY',
-  message: 'Aucun texte clair n’a été détecté. Réessayez avec une photo plus nette.',
+  message: 'Texte peu lisible. Essayez une photo plus proche et plus nette, ou corrigez les ingrédients manuellement.',
 };
 const CHATBOT_CONTENT_FILTER_REPLY =
   'Je ne peux pas répondre à cette demande telle qu’elle est formulée. Reformulez votre question autour des ingrédients, du gluten ou du résultat de scan.';
@@ -110,7 +110,7 @@ export default async function handler(req, res) {
     console.error('[vercel-api] request failed', { pathname, method: req.method, message: error.message });
     return res.status(error.status || 503).json({
       error: 'API_UNAVAILABLE',
-      message: error.message || 'Service API indisponible.',
+      message: error.message || 'Service momentanément indisponible.',
     });
   }
 }
@@ -328,7 +328,7 @@ async function extractTextWithOcrSpace(base64Image) {
     return {
       success: false,
       status: 503,
-      payload: { success: false, error: 'OCR_SPACE_API_KEY_MISSING', message: 'Le service OCR est momentanément indisponible.' },
+      payload: { success: false, error: 'OCR_SPACE_API_KEY_MISSING', message: "Le service de lecture de l’étiquette est momentanément indisponible. Vous pouvez réessayer ou saisir les ingrédients manuellement." },
     };
   }
 
@@ -374,7 +374,7 @@ async function extractTextWithOcrSpace(base64Image) {
         payload: {
           success: false,
           error: 'OCR_SPACE_API_FAILURE',
-          message: cleanOcrSpaceError(payload) || 'Le service OCR est momentanément indisponible.',
+          message: "Le service de lecture de l’étiquette est momentanément indisponible. Vous pouvez réessayer ou saisir les ingrédients manuellement.",
         },
       };
     }
@@ -383,13 +383,13 @@ async function extractTextWithOcrSpace(base64Image) {
       return { success: false, status: 200, payload: OCR_TEXT_EMPTY_RESPONSE };
     }
 
-    return { success: true, text: parsedText, languageLabel: 'Langue d?tect?e automatiquement' };
+    return { success: true, text: parsedText, languageLabel: 'Langue détectée automatiquement' };
   } catch (error) {
     console.error('[vercel-ocr] request failed', { message: error?.message });
     return {
       success: false,
       status: 503,
-      payload: { success: false, error: 'OCR_SPACE_NETWORK_ERROR', message: 'Le service OCR est momentanément indisponible.' },
+      payload: { success: false, error: 'OCR_SPACE_NETWORK_ERROR', message: "Le service de lecture de l’étiquette est momentanément indisponible. Vous pouvez réessayer ou saisir les ingrédients manuellement." },
     };
   }
 }
@@ -411,12 +411,6 @@ function getRequestPath(req) {
 
 function readBearerToken(req) {
   return String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
-}
-
-function cleanOcrSpaceError(payload) {
-  const errorMessage = payload?.ErrorMessage;
-  if (Array.isArray(errorMessage)) return errorMessage.filter(Boolean).join(' ');
-  return typeof errorMessage === 'string' ? errorMessage : '';
 }
 
 function isDataImage(value) {

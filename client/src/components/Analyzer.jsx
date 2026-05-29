@@ -1,5 +1,5 @@
 ﻿import { AlertTriangle, CheckCircle2, Keyboard, ScanLine, ShieldCheck } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { fullAnalysis } from '../lib/api.js';
 import { extractTextWithEasyOCR } from '../lib/ocrApi.js';
 import { assertCanAnalyze, formatTokenReset, getTokenSnapshot } from '../lib/packUsage.js';
@@ -32,6 +32,8 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
   const [saved, setSaved] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [tokenInfo, setTokenInfo] = useState(null);
+  const selectedImageRef = useRef(null);
+  const imageSelectionIdRef = useRef(0);
 
   const isImageMode = useMemo(() => method === 'upload' || method === 'camera', [method]);
 
@@ -49,10 +51,16 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
   }, []);
 
   function resetAll() {
+    imageSelectionIdRef.current += 1;
+    selectedImageRef.current = null;
     setFile(null);
     setProductName('');
     setPreview('');
     setImageData('');
+    resetAnalysisState();
+  }
+
+  function resetAnalysisState() {
     setText('');
     setProgress(0);
     setOcrError('');
@@ -62,19 +70,14 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
     setTokenLimitInfo(null);
     setSaveWarning('');
     setSaved(false);
+    setIsExtracting(false);
+    setIsAnalyzing(false);
     onResult(null);
   }
 
   function handleMethodChange(nextMethod) {
     setMethod(nextMethod);
-    setOcrError('');
-    setOcrWarning('');
-    setOcrEngine('');
-    setAnalysisError('');
-    setTokenLimitInfo(null);
-    setSaveWarning('');
-    setProgress(0);
-    onResult(null);
+    resetAnalysisState();
   }
 
   async function handleFileChange(event) {
@@ -85,18 +88,15 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
   }
 
   async function setSelectedImage(selected, dataUrl) {
+    const selectionId = imageSelectionIdRef.current + 1;
+    imageSelectionIdRef.current = selectionId;
+    selectedImageRef.current = selected;
+    resetAnalysisState();
     const nextPreview = dataUrl || (await fileToDataUrl(selected));
+    if (selectionId !== imageSelectionIdRef.current) return;
     setFile(selected);
     setPreview(nextPreview);
     setImageData(nextPreview);
-    setText('');
-    setOcrError('');
-    setOcrWarning('');
-    setOcrEngine('');
-    setTokenLimitInfo(null);
-    setProgress(0);
-    setSaved(false);
-    onResult(null);
   }
 
   function handleCameraCapture(selected, dataUrl) {
@@ -104,35 +104,50 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
   }
 
   async function handleExtract() {
+    const selectedImage = selectedImageRef.current || file;
+    if (!selectedImage) {
+      setOcrWarning('Ajoutez une image pour lancer la lecture de l’étiquette.');
+      return;
+    }
+    const extractionSelectionId = imageSelectionIdRef.current;
+
     setIsExtracting(true);
+    setText('');
     setOcrError('');
     setOcrWarning('');
     setOcrEngine('');
+    setAnalysisError('');
     setTokenLimitInfo(null);
+    setSaved(false);
     setProgress(10);
+    onResult(null);
 
     try {
       await assertCanAnalyze();
-      const result = await extractTextWithEasyOCR(file);
+      const result = await extractTextWithEasyOCR(selectedImage);
+      if (extractionSelectionId !== imageSelectionIdRef.current || selectedImageRef.current !== selectedImage) return;
       const extracted = result.text;
-      setOcrEngine(result.engine || 'EasyOCR');
+      setOcrEngine('done');
       setProgress(100);
       setText(extracted);
       if (!extracted) {
-        setOcrError('Aucun texte clair détecté. Vous pouvez saisir les ingrédients manuellement.');
+        setOcrWarning('Texte peu lisible. Essayez une photo plus proche et plus nette, ou corrigez les ingrédients manuellement.');
       } else if (result.lowConfidence) {
-        setOcrWarning('Texte peu lisible. Vérifiez ou corrigez les ingrédients avant l’analyse.');
+        setOcrWarning('Texte peu lisible. Essayez une photo plus proche et plus nette, ou corrigez les ingrédients manuellement.');
       }
     } catch (error) {
+      if (extractionSelectionId !== imageSelectionIdRef.current || selectedImageRef.current !== selectedImage) return;
       if (error.usage?.packStatus === 'free' && error.usage?.remaining <= 0) {
         setTokenLimitInfo(error.usage);
         setOcrWarning('');
       } else {
-        setOcrWarning(error.message);
+        setOcrWarning('Nous n’avons pas pu lire automatiquement cette image. Essayez avec une photo plus nette ou saisissez les ingrédients manuellement.');
       }
       setProgress(0);
     } finally {
-      setIsExtracting(false);
+      if (extractionSelectionId === imageSelectionIdRef.current) {
+        setIsExtracting(false);
+      }
     }
   }
 
@@ -146,6 +161,8 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
   }
 
   async function handleAnalyze() {
+    const analysisSelectionId = imageSelectionIdRef.current;
+    const analysisText = text;
     setIsAnalyzing(true);
     setAnalysisError('');
     setTokenLimitInfo(null);
@@ -154,14 +171,16 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
 
     try {
       const usage = await assertCanAnalyze();
-      const result = await fullAnalysis(text);
-      const savedAnalysis = await logCompletedScan({ result, text, inputType: method, productName, imageFile: file });
+      const result = await fullAnalysis(analysisText);
+      if (analysisSelectionId !== imageSelectionIdRef.current) return;
+      const savedAnalysis = await logCompletedScan({ result, text: analysisText, inputType: method, productName, imageFile: file });
+      if (analysisSelectionId !== imageSelectionIdRef.current) return;
       setTokenInfo(await getTokenSnapshot());
       if (savedAnalysis?.imageUploadWarning) setSaveWarning(savedAnalysis.imageUploadWarning);
-      saveChatbotScanContext(result, text);
+      saveChatbotScanContext(result, analysisText);
       onResult({
         ...result,
-        text,
+        text: analysisText,
         inputType: method,
         imageData,
         showAiExplanation: Boolean(usage.isPaid),
@@ -169,6 +188,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
         productName: savedAnalysis?.productName || productName || 'Produit sans nom',
       });
     } catch (error) {
+      if (analysisSelectionId !== imageSelectionIdRef.current) return;
       if (error.usage?.packStatus === 'free' && error.usage?.remaining <= 0) {
         setTokenLimitInfo(error.usage);
         setAnalysisError('Vous avez utilisé toutes vos analyses gratuites.');
@@ -176,7 +196,9 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
         setAnalysisError(error.message || "Impossible d'analyser les ingrédients pour le moment.");
       }
     } finally {
-      setIsAnalyzing(false);
+      if (analysisSelectionId === imageSelectionIdRef.current) {
+        setIsAnalyzing(false);
+      }
     }
   }
 
@@ -236,20 +258,14 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
                   ) : null}
                   <OcrProgress progress={progress} error={ocrError} active={isExtracting} />
                   {ocrWarning ? (
-                    <div className="rounded-[1.25rem] border border-amber-200 bg-amber-50 p-4">
-                      <div className="flex items-start gap-3">
-                        <AlertTriangle className="mt-0.5 shrink-0 text-amber-700" size={20} aria-hidden="true" />
-                        <div className="min-w-0">
-                          <p className="text-sm font-bold leading-6 text-amber-900">{ocrWarning}</p>
-                          <button type="button" onClick={switchToManualInput} className="secondary-btn mt-4">
-                            <Keyboard size={18} aria-hidden="true" />
-                            Passer à la saisie manuelle
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+                    <LabelReadingWarning
+                      message={ocrWarning}
+                      onRetry={handleExtract}
+                      onManual={switchToManualInput}
+                      retryDisabled={isExtracting || !file}
+                    />
                   ) : null}
-                  {(text || ocrError) && (
+                  {(text || ocrError || ocrWarning) && (
                     <ExtractedTextEditor text={text} onChange={setText} onAnalyze={handleAnalyze} onReset={resetAll} loading={isAnalyzing} />
                   )}
                 </>
@@ -330,6 +346,36 @@ function MiniMetric({ icon: Icon, label, value }) {
       <Icon className="mx-auto h-4 w-4 text-[#008f45]" aria-hidden="true" />
       <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p>
       {value ? <p className="mt-1 truncate text-sm font-bold text-[#1d252b]">{value}</p> : null}
+    </div>
+  );
+}
+
+function LabelReadingWarning({ message, onRetry, onManual, retryDisabled }) {
+  const isLowQuality = message.startsWith('Texte peu lisible');
+  const title = isLowQuality ? 'Texte peu lisible' : 'Lecture de l’étiquette indisponible';
+  const displayMessage = isLowQuality
+    ? message
+    : "Nous n’avons pas pu lire automatiquement cette image. Essayez avec une photo plus nette ou saisissez les ingrédients manuellement.";
+
+  return (
+    <div className="rounded-[1.25rem] border border-amber-200 bg-amber-50 p-4">
+      <div className="flex items-start gap-3">
+        <AlertTriangle className="mt-0.5 shrink-0 text-amber-700" size={20} aria-hidden="true" />
+        <div className="min-w-0">
+          <p className="text-sm font-black text-amber-950">{title}</p>
+          <p className="mt-1 text-sm font-bold leading-6 text-amber-900">{displayMessage}</p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button type="button" onClick={onRetry} disabled={retryDisabled} className="secondary-btn disabled:cursor-not-allowed disabled:opacity-60">
+              <ScanLine size={18} aria-hidden="true" />
+              Réessayer
+            </button>
+            <button type="button" onClick={onManual} className="secondary-btn">
+              <Keyboard size={18} aria-hidden="true" />
+              Passer à la saisie manuelle
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

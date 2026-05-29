@@ -18,19 +18,19 @@ export async function extractTextWithEasyOCR(file) {
       body: JSON.stringify({ base64Image: await fileToDataUrl(file) }),
     });
   } catch {
-    throw new Error('La lecture automatique est indisponible. Vous pouvez saisir les ingrédients manuellement.');
+    throw new Error("Le service de lecture de l’étiquette est momentanément indisponible. Vous pouvez réessayer ou saisir les ingrédients manuellement.");
   }
 
   let payload;
   try {
     payload = await response.json();
   } catch {
-    throw new Error('Lecture automatique invalide. Vous pouvez saisir les ingrédients manuellement.');
+    throw new Error("Impossible de lire l’étiquette. Vous pouvez réessayer ou saisir les ingrédients manuellement.");
   }
 
   if (!response.ok || !payload.success) {
     throw new Error(
-      payload.message || payload.error || "Impossible d'extraire le texte. Vous pouvez saisir les ingrédients manuellement.",
+      payload.message || payload.error || "Impossible de lire l’étiquette. Vous pouvez réessayer ou saisir les ingrédients manuellement.",
     );
   }
 
