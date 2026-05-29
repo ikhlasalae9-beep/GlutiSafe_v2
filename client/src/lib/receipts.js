@@ -49,3 +49,29 @@ export async function resendReceiptEmail(receiptId) {
 
   return payload;
 }
+
+export async function sendAdminTestEmail(to) {
+  const client = requireSupabaseClient();
+  const { data } = await client.auth.getSession();
+  const token = data.session?.access_token;
+
+  if (!token) {
+    throw new Error('Session admin introuvable.');
+  }
+
+  const response = await fetch(`${API_URL}/api/test-email`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ to }),
+  });
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(payload.message || 'Test e-mail impossible.');
+  }
+
+  return payload;
+}

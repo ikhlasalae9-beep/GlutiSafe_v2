@@ -1,3 +1,5 @@
+﻿import { sendPackConfirmationEmail, sendTestEmail } from './email.js';
+
 const SUPABASE_REST_PATH = '/rest/v1';
 const STORAGE_WARNING = 'Base de donnees non configuree. Ajoutez SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY dans Vercel.';
 const FREE_AI_MESSAGES_LIMIT = 5;
@@ -19,7 +21,7 @@ export async function assertCanUseAiAssistant({ requesterToken } = {}) {
 
   const usage = await readAiMessageUsage(access.config, access.user.id);
   if (usage.message_count >= FREE_AI_MESSAGES_LIMIT) {
-    const error = new Error('Vous avez atteint la limite gratuite de 5 messages IA. Passez à un pack premium pour continuer à utiliser l’assistant IA.');
+    const error = new Error('Vous avez atteint la limite gratuite de 5 messages IA. Passez Ã  un pack premium pour continuer Ã  utiliser lâ€™assistant IA.');
     error.status = 429;
     throw error;
   }
@@ -165,9 +167,9 @@ export async function assertCanUserAnalyze({ requesterToken }) {
     if (count >= limit) {
       const error = new Error(
         isPaid && effective.type === 'monthly'
-          ? 'Vous avez utilisé tous vos tokens du Pack Mensuel. Vos tokens seront renouvelés selon votre période de réinitialisation.'
+          ? 'Vous avez utilisÃ© tous vos tokens du Pack Mensuel. Vos tokens seront renouvelÃ©s selon votre pÃ©riode de rÃ©initialisation.'
           : isPaid && effective.type === 'yearly'
-            ? 'Vous avez utilisé tous vos tokens du Pack Annuel. Vos tokens seront renouvelés selon votre période de réinitialisation.'
+            ? 'Vous avez utilisÃ© tous vos tokens du Pack Annuel. Vos tokens seront renouvelÃ©s selon votre pÃ©riode de rÃ©initialisation.'
           : 'Vous avez utilise tous vos tokens. Reessayez apres la reinitialisation ou passez a un pack premium.',
       );
       error.status = 429;
@@ -187,7 +189,7 @@ export async function assertCanUserAnalyze({ requesterToken }) {
 
   const effective = effectivePack(profile);
   if (effective.status === 'blocked') {
-    const error = new Error('Votre compte est bloqué. Contactez l’administration.');
+    const error = new Error('Votre compte est bloquÃ©. Contactez lâ€™administration.');
     error.status = 403;
     throw error;
   }
@@ -353,20 +355,24 @@ export async function confirmPayment({ requesterToken, paymentId }) {
   });
   const emailResult = await sendReceiptEmail(config, receipt).catch((error) => {
     console.error('[receipt-email] send failed', { message: error.message });
-    return { sent: false, reason: error.message };
+    return { sent: false, error };
   });
 
   if (emailResult.sent) {
-    await updateReceipt(config, receipt.id, { email_sent: true, email_sent_at: new Date().toISOString() });
+    await updateReceiptEmailStatus(config, receipt.id, { email_sent: true, email_sent_at: new Date().toISOString(), email_error: null });
+  } else {
+    await updateReceiptEmailStatus(config, receipt.id, { email_sent: false, email_error: emailResult.error?.message || 'Email non envoyé.' });
   }
+
+  const emailErrorMessage = emailResult.error?.message || '';
 
   return {
     confirmed: true,
     profile,
-    receipt: { ...receipt, email_sent: Boolean(emailResult.sent) },
+    receipt: { ...receipt, email_sent: Boolean(emailResult.sent), email_error: emailErrorMessage || null },
     emailSent: Boolean(emailResult.sent),
-    message: emailResult.sent ? 'Pack activé, reçu généré, e-mail envoyé.' : 'Pack activé et reçu généré, mais e-mail non envoyé.',
-    warning: emailResult.sent ? '' : "Pack activé, mais l'e-mail n'a pas été envoyé car le service e-mail n'est pas configuré.",
+    message: emailResult.sent ? 'Pack activé, reçu généré, e-mail envoyé.' : `Pack activé, mais l'e-mail n'a pas été envoyé: ${emailErrorMessage}`,
+    warning: emailResult.sent ? '' : `Pack activé, mais l'e-mail n'a pas été envoyé: ${emailErrorMessage}`,
   };
 }
 
@@ -408,17 +414,35 @@ export async function resendReceiptEmail({ requesterToken, receiptId }) {
   const receipt = await readReceipt(config, receiptId);
 
   if (!receipt) {
-    const error = new Error('Reçu introuvable.');
+    const error = new Error('ReÃ§u introuvable.');
     error.status = 404;
     throw error;
   }
 
-  const emailResult = await sendReceiptEmail(config, receipt);
-  if (emailResult.sent) {
-    await updateReceipt(config, receipt.id, { email_sent: true, email_sent_at: new Date().toISOString() });
+  try {
+    const emailResult = await sendReceiptEmail(config, receipt);
+    if (emailResult.sent) {
+      await updateReceiptEmailStatus(config, receipt.id, { email_sent: true, email_sent_at: new Date().toISOString(), email_error: null });
+    }
+    return { sent: Boolean(emailResult.sent), receiptId: receipt.id, message: 'E-mail envoyé.' };
+  } catch (error) {
+    await updateReceiptEmailStatus(config, receipt.id, { email_sent: false, email_error: error.message || 'Email non envoyé.' });
+    throw error;
+  }
+}
+
+export async function testEmail({ requesterToken, to }) {
+  const config = requireSupabaseConfig();
+  const admin = await requireAdmin(config, requesterToken);
+  const recipient = cleanText(to) || admin.email;
+  if (!recipient) {
+    const error = new Error('Adresse e-mail de test manquante.');
+    error.status = 400;
+    throw error;
   }
 
-  return { sent: Boolean(emailResult.sent), receiptId: receipt.id };
+  await sendTestEmail({ to: recipient });
+  return { sent: true, to: recipient, message: 'E-mail de test envoyé.' };
 }
 
 export async function deleteUserAccount({ requesterToken, userId, deleteAnalyses = false }) {
@@ -547,7 +571,7 @@ async function readAiMessageUsage(config, userId) {
     method: 'GET',
     query: { select: 'id,user_id,message_count,period_start', user_id: `eq.${userId}`, order: 'created_at.desc', limit: '1' },
   }).catch((error) => {
-    error.message = 'La limite Assistant IA n’est pas configuree. Ajoutez la table ai_message_usage.';
+    error.message = 'La limite Assistant IA nâ€™est pas configuree. Ajoutez la table ai_message_usage.';
     throw error;
   });
 
@@ -637,6 +661,17 @@ async function updateReceipt(config, receiptId, body) {
   return Array.isArray(rows) ? rows[0] : null;
 }
 
+async function updateReceiptEmailStatus(config, receiptId, body) {
+  try {
+    return await updateReceipt(config, receiptId, body);
+  } catch (error) {
+    if (!Object.prototype.hasOwnProperty.call(body, 'email_error')) throw error;
+    const fallbackBody = { ...body };
+    delete fallbackBody.email_error;
+    return updateReceipt(config, receiptId, fallbackBody);
+  }
+}
+
 async function uploadReceiptPdf(config, path, pdfBuffer) {
   const response = await fetch(`${config.url}/storage/v1/object/${RECEIPT_BUCKET}/${path}`, {
     method: 'PUT',
@@ -650,7 +685,7 @@ async function uploadReceiptPdf(config, path, pdfBuffer) {
   });
 
   if (!response.ok) {
-    const error = new Error('Impossible de sauvegarder le PDF du reçu.');
+    const error = new Error('Impossible de sauvegarder le PDF du reÃ§u.');
     error.status = response.status;
     error.details = await response.text().catch(() => '');
     throw error;
@@ -658,49 +693,19 @@ async function uploadReceiptPdf(config, path, pdfBuffer) {
 }
 
 async function sendReceiptEmail(config, receipt) {
-  const provider = cleanText(process.env.EMAIL_PROVIDER || 'resend').toLowerCase();
-  const apiKey = cleanText(process.env.RESEND_API_KEY);
-  const from = cleanText(process.env.FROM_EMAIL) || 'GlutiSafe <no-reply@glutisafe.com>';
-  const siteUrl = cleanText(process.env.VITE_SITE_URL || process.env.SITE_URL || 'https://gluti-safe-v2.vercel.app');
-
-  if (provider !== 'resend' || !apiKey || !receipt?.customer_email) {
-    return { sent: false, reason: 'EMAIL_NOT_CONFIGURED' };
+  if (!receipt?.customer_email) {
+    throw new Error('Customer email missing');
   }
 
-  const packLabel = receipt.pack_type === 'yearly' ? 'Annuel' : 'Mensuel';
-  const html = `
-    <div style="font-family:Arial,sans-serif;color:#1d252b;line-height:1.6">
-      <h1 style="color:#008f45">Votre pack GlutiSafe est activé</h1>
-      <p>Bonjour ${escapeHtml(receipt.customer_name || 'Client')},</p>
-      <p>Votre paiement a été confirmé et votre Pack ${packLabel} est maintenant actif.</p>
-      <p><strong>Date de début:</strong> ${formatFrenchDate(receipt.pack_start_at)}<br />
-      <strong>Date de fin:</strong> ${formatFrenchDate(receipt.pack_end_at)}</p>
-      <p>Vous pouvez télécharger votre reçu depuis votre profil GlutiSafe.</p>
-      <p><a href="${siteUrl}/profile" style="display:inline-block;background:#008f45;color:#fff;text-decoration:none;padding:12px 18px;border-radius:12px;font-weight:bold">Accéder à mon espace</a></p>
-    </div>
-  `;
-
-  const response = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from,
-      to: receipt.customer_email,
-      subject: 'Votre pack GlutiSafe est activé',
-      html,
-    }),
+  await sendPackConfirmationEmail({
+    to: receipt.customer_email,
+    customerName: receipt.customer_name || 'Client',
+    packType: receipt.pack_type,
+    startDate: formatFrenchDate(receipt.pack_start_at),
+    endDate: formatFrenchDate(receipt.pack_end_at),
+    amount: receipt.amount,
+    receiptNumber: receipt.receipt_number,
   });
-
-  if (!response.ok) {
-    const details = await response.text().catch(() => '');
-    const error = new Error('Email non envoyé.');
-    error.status = response.status;
-    error.details = details;
-    throw error;
-  }
 
   return { sent: true };
 }
@@ -709,23 +714,23 @@ function generateReceiptPdf(receipt) {
   const packLabel = receipt.pack_type === 'yearly' ? 'Pack Annuel' : 'Pack Mensuel';
   const methodLabel = receipt.payment_method === 'cashplus' ? 'CashPlus' : receipt.payment_method === 'rib' ? 'RIB' : 'Manuel';
   const rows = [
-    ['Numéro de reçu', receipt.receipt_number],
+    ['NumÃ©ro de reÃ§u', receipt.receipt_number],
     ['Date de confirmation', formatFrenchDate(receipt.created_at)],
     ['Nom du client', receipt.customer_name],
     ['Email du client', receipt.customer_email],
-    ['Pack activé', packLabel],
-    ['Méthode de paiement', methodLabel],
-    ['Montant payé', `${receipt.amount} ${receipt.currency || 'MAD'}`],
-    ['Date de début', formatFrenchDate(receipt.pack_start_at)],
+    ['Pack activÃ©', packLabel],
+    ['MÃ©thode de paiement', methodLabel],
+    ['Montant payÃ©', `${receipt.amount} ${receipt.currency || 'MAD'}`],
+    ['Date de dÃ©but', formatFrenchDate(receipt.pack_start_at)],
     ['Date de fin', formatFrenchDate(receipt.pack_end_at)],
-    ['Statut', 'Confirmé'],
+    ['Statut', 'ConfirmÃ©'],
   ];
 
   const content = [
     'q 0.00 0.56 0.27 rg 0 792 595 -92 re f Q',
     'BT /F1 28 Tf 54 742 Td (GlutiSafe) Tj ET',
     'BT /F2 11 Tf 54 722 Td (Scan, Check, Stay Safe) Tj ET',
-    "BT /F1 20 Tf 54 674 Td (Reçu d\\'activation du pack) Tj ET",
+    "BT /F1 20 Tf 54 674 Td (ReÃ§u d\\'activation du pack) Tj ET",
     'q 0.91 0.96 0.91 rg 54 638 487 1 re f Q',
     ...rows.flatMap(([label, value], index) => {
       const y = 604 - index * 32;
@@ -737,7 +742,7 @@ function generateReceiptPdf(receipt) {
     }),
     'q 0.95 0.98 0.95 rg 54 146 487 78 re f Q',
     'BT /F1 12 Tf 70 192 Td (Merci pour votre confiance.) Tj ET',
-    "BT /F2 9 Tf 70 172 Td (GlutiSafe aide à analyser les ingrédients visibles d\\'un produit.) Tj ET",
+    "BT /F2 9 Tf 70 172 Td (GlutiSafe aide Ã  analyser les ingrÃ©dients visibles d\\'un produit.) Tj ET",
     "BT /F2 9 Tf 70 158 Td (L\\'application ne remplace pas une certification officielle.) Tj ET",
   ].join('\n');
 
@@ -952,8 +957,8 @@ function periodStart(pack) {
 }
 
 function limitMessage(pack, limit) {
-  if (pack.status === 'expired') return 'Votre pack est expiré. Passez à un pack premium pour continuer.';
-  if (pack.status !== 'active') return 'Vous avez atteint la limite de 5 scans du Pack Gratuit ce mois-ci. Passez à un pack premium pour continuer.';
+  if (pack.status === 'expired') return 'Votre pack est expirÃ©. Passez Ã  un pack premium pour continuer.';
+  if (pack.status !== 'active') return 'Vous avez atteint la limite de 5 scans du Pack Gratuit ce mois-ci. Passez Ã  un pack premium pour continuer.';
   return `Vous avez atteint la limite de ${limit} scans pour votre pack.`;
 }
 
@@ -965,3 +970,4 @@ function parseContentRangeCount(contentRange) {
 function cleanText(value) {
   return String(value || '').trim();
 }
+

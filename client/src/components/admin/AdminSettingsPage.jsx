@@ -1,7 +1,8 @@
-import { Save, ShieldCheck, SlidersHorizontal, UserRound, WalletCards } from 'lucide-react';
+import { Mail, Save, ShieldCheck, SlidersHorizontal, UserRound, WalletCards } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import AdminStatCard from './AdminStatCard.jsx';
 import { PACKS, updatePackSettings, updatePaymentSettings } from '../../lib/packs.js';
+import { sendAdminTestEmail } from '../../lib/receipts.js';
 
 export default function AdminSettingsPage({ dashboard, onSaved }) {
   const settings = dashboard.settings;
@@ -47,6 +48,20 @@ export default function AdminSettingsPage({ dashboard, onSaved }) {
     }
   }
 
+  async function testEmailSending() {
+    setSaving('email-test');
+    setMessage('');
+    setError('');
+    try {
+      const result = await sendAdminTestEmail(dashboard.admin?.email);
+      setMessage(result.message || 'E-mail de test envoyé.');
+    } catch (err) {
+      setError(err.message || 'Test e-mail impossible.');
+    } finally {
+      setSaving('');
+    }
+  }
+
   return (
     <div className="space-y-5">
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -83,6 +98,10 @@ export default function AdminSettingsPage({ dashboard, onSaved }) {
         <button type="button" disabled={saving === 'payment'} onClick={savePaymentSettings} className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-[#008f45] px-5 py-3 text-sm font-black text-white disabled:opacity-60">
           <Save className="h-4 w-4" aria-hidden="true" />
           Enregistrer
+        </button>
+        <button type="button" disabled={saving === 'email-test'} onClick={testEmailSending} className="ml-3 mt-5 inline-flex items-center gap-2 rounded-2xl border border-[#dfe8df] bg-white px-5 py-3 text-sm font-black text-slate-700 hover:border-[#008f45] hover:text-[#008f45] disabled:opacity-60">
+          <Mail className="h-4 w-4" aria-hidden="true" />
+          Tester l'e-mail
         </button>
       </section>
 

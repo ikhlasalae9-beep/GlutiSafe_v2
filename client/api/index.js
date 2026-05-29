@@ -13,6 +13,7 @@ import {
   readAdminStats,
   rejectPayment,
   resendReceiptEmail,
+  testEmail,
   unblockUser,
 } from '../src/server/adminStats.js';
 import { GLUTISAFE_SYSTEM_PROMPT, createChatCompletion } from '../src/server/aiService.js';
@@ -58,6 +59,11 @@ export default async function handler(req, res) {
 
     if (req.method === 'POST' && pathname === '/api/chatbot/message') {
       return handleChatbot(req, res);
+    }
+
+    if (req.method === 'POST' && pathname === '/api/test-email') {
+      const body = await readJsonBody(req);
+      return sendAdminResult(res, testEmail({ requesterToken: readBearerToken(req), to: body.to }));
     }
 
     if (req.method === 'POST' && pathname === '/api/admin/delete-user') {

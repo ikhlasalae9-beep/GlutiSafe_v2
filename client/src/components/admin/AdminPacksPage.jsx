@@ -199,6 +199,7 @@ function ReceiptsSection({ receipts = [], actionLoading, onReceiptAction }) {
                   <Badge>{formatDateTime(receipt.createdAt)}</Badge>
                   <Badge>{receipt.emailSent ? 'Email envoyé' : 'Email non envoyé'}</Badge>
                 </div>
+                {receipt.emailError ? <p className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">{receipt.emailError}</p> : null}
               </div>
               <div className="grid gap-2 sm:grid-cols-2 lg:min-w-72">
                 <Action disabled={!receipt.pdfPath} onClick={() => openReceiptPdf(receipt.pdfPath)}>
@@ -206,7 +207,7 @@ function ReceiptsSection({ receipts = [], actionLoading, onReceiptAction }) {
                 </Action>
                 {!receipt.emailSent ? (
                   <Action disabled={actionLoading === `${receipt.id}:resend-email`} onClick={() => onReceiptAction?.(receipt, 'resend-email')}>
-                    Resend email
+                    Renvoyer l'e-mail
                   </Action>
                 ) : null}
               </div>

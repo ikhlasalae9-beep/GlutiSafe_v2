@@ -259,7 +259,7 @@ async function fetchOptionalPaymentRequests(client) {
 async function fetchOptionalReceipts(client) {
   const result = await client
     .from('pack_receipts')
-    .select('id, user_id, payment_request_id, pack_type, amount, currency, receipt_number, customer_name, customer_email, payment_method, pack_start_at, pack_end_at, pdf_path, email_sent, email_sent_at, created_at')
+    .select('id, user_id, payment_request_id, pack_type, amount, currency, receipt_number, customer_name, customer_email, payment_method, pack_start_at, pack_end_at, pdf_path, email_sent, email_sent_at, email_error, created_at')
     .order('created_at', { ascending: false })
     .limit(DASHBOARD_LIMITS.receipts);
 
@@ -405,6 +405,7 @@ function normalizeReceipt(receipt = {}, userById = new Map()) {
     pdfPath: receipt.pdf_path || '',
     emailSent: Boolean(receipt.email_sent),
     emailSentAt: receipt.email_sent_at || null,
+    emailError: receipt.email_error || '',
     createdAt: receipt.created_at || null,
   };
 }

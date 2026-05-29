@@ -14,8 +14,12 @@ create table if not exists public.pack_receipts (
   pdf_path text,
   email_sent boolean default false,
   email_sent_at timestamptz,
+  email_error text,
   created_at timestamptz default now()
 );
+
+alter table public.pack_receipts
+  add column if not exists email_error text;
 
 alter table public.pack_receipts enable row level security;
 
