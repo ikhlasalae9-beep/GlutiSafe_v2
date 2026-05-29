@@ -55,7 +55,13 @@ def ocr_status_payload() -> dict:
     return {
         "service": SERVICE_NAME,
         "engine": "EasyOCR",
-        "langs": [lang.strip() for lang in os.getenv("OCR_LANGS", "fr,en").split(",") if lang.strip()],
+        "language_groups": {
+            "latin": ["fr", "en", "es", "it", "pt", "de", "nl", "ro", "tr", "pl"],
+            "arabic": ["ar", "en"],
+            "cyrillic": ["ru", "uk", "bg", "en"],
+            "asian": ["ch_sim", "ja", "ko", "en"],
+            "indic": ["hi", "en"],
+        },
         "gpu": os.getenv("OCR_GPU", "false").strip().lower() in {"1", "true", "yes", "on"},
         "ready": False,
         "message": startup_error or "OCR service is not ready.",

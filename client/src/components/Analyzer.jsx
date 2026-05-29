@@ -120,6 +120,8 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
       setText(extracted);
       if (!extracted) {
         setOcrError('Aucun texte clair détecté. Vous pouvez saisir les ingrédients manuellement.');
+      } else if (result.lowConfidence) {
+        setOcrWarning('Texte peu lisible. Vérifiez ou corrigez les ingrédients avant l’analyse.');
       }
     } catch (error) {
       if (error.usage?.packStatus === 'free' && error.usage?.remaining <= 0) {
@@ -194,9 +196,9 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
           </p>
         </div>
         <div className="grid grid-cols-3 gap-2 rounded-[1.5rem] border border-[#dfe8df] bg-white/80 p-3 shadow-sm">
-          <MiniMetric icon={ScanLine} label="Lecture" value={ocrEngine ? 'Prête' : 'Automatique'} />
+          <MiniMetric icon={ScanLine} label="Lecture" value="Automatique" />
           <MiniMetric icon={ShieldCheck} label="Verdict" value="Gluten" />
-          <MiniMetric icon={CheckCircle2} label="Langues" value="FR EN ES" />
+          <MiniMetric icon={CheckCircle2} label="Langue détectée automatiquement" />
         </div>
       </div>
 
@@ -229,7 +231,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
                   {ocrEngine && !ocrWarning ? (
                     <p className="inline-flex min-h-10 items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 text-sm font-bold text-emerald-800">
                       <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-                      Lecture terminée
+                      Lecture de l’étiquette terminée
                     </p>
                   ) : null}
                   <OcrProgress progress={progress} error={ocrError} active={isExtracting} />
@@ -327,7 +329,7 @@ function MiniMetric({ icon: Icon, label, value }) {
     <div className="rounded-2xl bg-[#f7f8f6] p-3 text-center">
       <Icon className="mx-auto h-4 w-4 text-[#008f45]" aria-hidden="true" />
       <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p>
-      <p className="mt-1 truncate text-sm font-bold text-[#1d252b]">{value}</p>
+      {value ? <p className="mt-1 truncate text-sm font-bold text-[#1d252b]">{value}</p> : null}
     </div>
   );
 }

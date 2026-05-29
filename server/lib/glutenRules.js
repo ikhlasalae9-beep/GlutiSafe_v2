@@ -1,14 +1,14 @@
 const labels = {
   CONTAINS_GLUTEN: 'Contient du gluten',
   POSSIBLE_RISK: 'Risque possible',
-  NO_GLUTEN_DETECTED: 'Aucun gluten detecte',
+  NO_GLUTEN_DETECTED: 'Aucun gluten détecté',
   INSUFFICIENT_INFO: 'Information insuffisante',
 };
 
 const messages = {
-  CONTAINS_GLUTEN: 'Des ingredients directement lies au gluten ont ete detectes.',
-  POSSIBLE_RISK: 'Des termes ambigus ou lies aux traces possibles ont ete detectes.',
-  NO_GLUTEN_DETECTED: 'Aucun mot surveille lie au gluten n a ete detecte dans le texte analyse.',
+  CONTAINS_GLUTEN: 'Des ingrédients directement liés au gluten ont été détectés.',
+  POSSIBLE_RISK: 'Des termes ambigus ou liés aux traces possibles ont été détectés.',
+  NO_GLUTEN_DETECTED: 'Aucun mot surveillé lié au gluten n’a été détecté dans le texte analysé.',
   INSUFFICIENT_INFO: 'Le texte fourni est trop court pour une analyse fiable.',
 };
 
@@ -330,6 +330,118 @@ const warningStarters = [
   '生产线也处理',
 ];
 
+const multilingualSafeClaimTerms = [
+  'sans gluten',
+  'gluten free',
+  'gluten-free',
+  'no gluten',
+  'sin gluten',
+  'senza glutine',
+  'glutenfrei',
+  'ohne gluten',
+  'sem gluten',
+  'sem glúten',
+  'خال من الغلوتين',
+  'خالي من الغلوتين',
+  'بدون غلوتين',
+];
+
+const multilingualDirectTerms = [
+  'blé',
+  'ble',
+  'froment',
+  'orge',
+  'seigle',
+  'avoine',
+  'malt',
+  'gluten',
+  'farine',
+  'semoule',
+  'wheat',
+  'barley',
+  'rye',
+  'oats',
+  'flour',
+  'semolina',
+  'trigo',
+  'cebada',
+  'centeno',
+  'avena',
+  'malta',
+  'harina',
+  'sémola',
+  'semola',
+  'grano',
+  'frumento',
+  'orzo',
+  'segale',
+  'malto',
+  'glutine',
+  'farina',
+  'weizen',
+  'weizenmehl',
+  'gerstenmalz',
+  'roggenmehl',
+  'haferflocken',
+  'gerste',
+  'roggen',
+  'hafer',
+  'malz',
+  'mehl',
+  'grieß',
+  'griess',
+  'cevada',
+  'centeio',
+  'aveia',
+  'malte',
+  'glúten',
+  'farinha',
+  'sêmola',
+  'قمح',
+  'القمح',
+  'شعير',
+  'الشعير',
+  'شوفان',
+  'الشوفان',
+  'جلوتين',
+  'غلوتين',
+  'دقيق',
+  'سميد',
+  '小麦',
+  '大麦',
+  '黑麦',
+  '燕麦',
+  '麸质',
+  '面粉',
+  'ライ麦',
+  'オーツ麦',
+  'グルテン',
+  '小麦粉',
+  '밀',
+  '보리',
+  '호밀',
+  '귀리',
+  '글루텐',
+  '밀가루',
+];
+
+const multilingualPossibleTerms = [
+  'peut contenir',
+  'traces de gluten',
+  'traces de blé',
+  'may contain',
+  'may contain gluten',
+  'may contain wheat',
+  'puede contener',
+  'trazas de gluten',
+  'kann gluten enthalten',
+  'spuren von gluten',
+  'può contenere glutine',
+  'pode conter glúten',
+  'قد يحتوي على الغلوتين',
+  'قد يحتوي على قمح',
+];
+
 const chinesePattern = /[\u3400-\u9fff]/;
 
 function unique(items) {
@@ -418,6 +530,7 @@ export function normalizeText(text = '') {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
+    .normalize('NFC')
     .replace(/[’`´']/g, ' ')
     .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
     .replace(/\s+/g, ' ')
@@ -425,21 +538,21 @@ export function normalizeText(text = '') {
 }
 
 export function findSafeClaims(normalizedText) {
-  return unique(findPhraseMatches(normalizedText, safeClaimTerms).map((match) => match.term));
+  return unique(findPhraseMatches(normalizedText, [...safeClaimTerms, ...multilingualSafeClaimTerms]).map((match) => match.term));
 }
 
 export function removeSafeClaimPhrases(normalizedText) {
-  const safeRanges = findPhraseMatches(normalizedText, safeClaimTerms);
+  const safeRanges = findPhraseMatches(normalizedText, [...safeClaimTerms, ...multilingualSafeClaimTerms]);
   return removeRanges(normalizedText, safeRanges);
 }
 
 export function findWarningClaims(normalizedText) {
-  return unique(findPhraseMatches(normalizedText, warningClaimTerms).map((match) => match.term));
+  return unique(findPhraseMatches(normalizedText, [...warningClaimTerms, ...multilingualPossibleTerms]).map((match) => match.term));
 }
 
 function createRiskSearchText(normalizedText) {
-  const safeRanges = findPhraseMatches(normalizedText, safeClaimTerms);
-  const warningClaimRanges = findPhraseMatches(normalizedText, warningClaimTerms);
+  const safeRanges = findPhraseMatches(normalizedText, [...safeClaimTerms, ...multilingualSafeClaimTerms]);
+  const warningClaimRanges = findPhraseMatches(normalizedText, [...warningClaimTerms, ...multilingualPossibleTerms]);
   const exceptionRanges = findPhraseMatches(normalizedText, safeExceptionTerms);
   const warningRanges = warningContextRanges(normalizedText);
   return removeRanges(normalizedText, [...safeRanges, ...warningClaimRanges, ...exceptionRanges, ...warningRanges]);
@@ -447,17 +560,17 @@ function createRiskSearchText(normalizedText) {
 
 export function findDirectGlutenTerms(normalizedText) {
   const searchableText = createRiskSearchText(normalizedText);
-  return unique(findPhraseMatches(searchableText, directTerms).map((match) => match.term));
+  return unique(findPhraseMatches(searchableText, [...directTerms, ...multilingualDirectTerms]).map((match) => match.term));
 }
 
 export function findPossibleRiskTerms(normalizedText) {
-  const searchableText = removeRanges(normalizedText, findPhraseMatches(normalizedText, safeClaimTerms));
-  return unique(findPhraseMatches(searchableText, possibleTerms).map((match) => match.term));
+  const searchableText = removeRanges(normalizedText, findPhraseMatches(normalizedText, [...safeClaimTerms, ...multilingualSafeClaimTerms]));
+  return unique(findPhraseMatches(searchableText, [...possibleTerms, ...multilingualPossibleTerms]).map((match) => match.term));
 }
 
 export function detectGenericFlourRisk(normalizedText) {
   const withoutSafe = removeRanges(normalizedText, [
-    ...findPhraseMatches(normalizedText, safeClaimTerms),
+    ...findPhraseMatches(normalizedText, [...safeClaimTerms, ...multilingualSafeClaimTerms]),
     ...findPhraseMatches(normalizedText, safeExceptionTerms),
   ]);
   return unique(findPhraseMatches(withoutSafe, genericRiskTerms).map((match) => match.term));

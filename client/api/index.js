@@ -350,7 +350,7 @@ async function extractTextWithOcrSpace(base64Image) {
 
   const form = new URLSearchParams();
   form.set('apikey', apiKey);
-  form.set('language', 'fre');
+  form.set('language', String(process.env.OCR_SPACE_LANGUAGE || 'auto').trim());
   form.set('isOverlayRequired', 'false');
   form.set('detectOrientation', 'true');
   form.set('scale', 'true');
@@ -383,7 +383,7 @@ async function extractTextWithOcrSpace(base64Image) {
       return { success: false, status: 200, payload: OCR_TEXT_EMPTY_RESPONSE };
     }
 
-    return { success: true, text: parsedText };
+    return { success: true, text: parsedText, languageLabel: 'Langue d?tect?e automatiquement' };
   } catch (error) {
     console.error('[vercel-ocr] request failed', { message: error?.message });
     return {

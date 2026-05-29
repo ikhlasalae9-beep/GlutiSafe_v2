@@ -7,7 +7,7 @@ export default function OcrProgress({ progress, error, active }) {
     <div className="soft-card p-4">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p className="text-sm font-bold text-[#1d252b]">Lecture de l’étiquette</p>
+          <p className="text-sm font-bold text-[#1d252b]">Lecture automatique de l’étiquette</p>
           <p className="mt-1 text-xs font-semibold text-slate-500">GlutiSafe lit les ingrédients visibles sur l’image.</p>
         </div>
         <p className="text-sm font-bold text-[#008f45]">{active ? 'En cours' : `${progress}%`}</p>
