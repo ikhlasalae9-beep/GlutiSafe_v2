@@ -3,12 +3,16 @@ import { requireSupabaseClient } from './supabaseClient.js';
 export const FREE_AI_MESSAGES_LIMIT = 5;
 
 export async function getMyAiMessageUsage(userId) {
-  if (!userId) return { used: 0, limit: FREE_AI_MESSAGES_LIMIT };
+  const client = requireSupabaseClient();
+  const { data: authData, error: authError } = await client.auth.getUser();
+  const user = authData?.user;
 
-  const { data, error } = await requireSupabaseClient()
+  if (authError || !user?.id || (userId && userId !== user.id)) return { used: 0, limit: FREE_AI_MESSAGES_LIMIT };
+
+  const { data, error } = await client
     .from('ai_message_usage')
     .select('message_count')
-    .eq('user_id', userId)
+    .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();

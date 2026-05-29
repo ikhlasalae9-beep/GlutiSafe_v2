@@ -5,9 +5,17 @@ const RECEIPT_BUCKET = 'pack-receipts';
 
 export async function getMyReceipts() {
   const client = requireSupabaseClient();
+  const { data: authData, error: authError } = await client.auth.getUser();
+  const user = authData?.user;
+
+  if (authError || !user?.id) {
+    throw new Error('Connectez-vous pour consulter vos recus.');
+  }
+
   const { data, error } = await client
     .from('pack_receipts')
     .select('*')
+    .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(50);
 
@@ -26,6 +34,20 @@ export async function createReceiptSignedUrl(pdfPath) {
 export async function openReceiptPdf(pdfPath) {
   const signedUrl = await createReceiptSignedUrl(pdfPath);
   window.open(signedUrl, '_blank', 'noopener,noreferrer');
+}
+
+export async function openOwnReceiptPdf(receipt) {
+  const client = requireSupabaseClient();
+  const { data: authData, error: authError } = await client.auth.getUser();
+  const user = authData?.user;
+
+  if (authError || !user?.id || receipt?.user_id !== user.id) {
+    return null;
+  }
+
+  const signedUrl = await createReceiptSignedUrl(receipt.pdf_path);
+  window.open(signedUrl, '_blank', 'noopener,noreferrer');
+  return signedUrl;
 }
 
 export async function resendReceiptEmail(receiptId) {

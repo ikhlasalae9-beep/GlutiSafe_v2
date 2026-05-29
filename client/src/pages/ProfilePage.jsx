@@ -8,7 +8,7 @@ import { getHistory, isAlertHistoryItem, isSafeHistoryItem } from '../lib/histor
 import { getMyPaymentRequests } from '../lib/payments.js';
 import { formatTokenReset, getTokenSnapshot } from '../lib/packUsage.js';
 import { PACKS } from '../lib/packs.js';
-import { getMyReceipts, openReceiptPdf } from '../lib/receipts.js';
+import { getMyReceipts, openOwnReceiptPdf } from '../lib/receipts.js';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
@@ -268,7 +268,7 @@ function ReceiptsSection({ receipts }) {
               <p className="font-black text-[#1d252b]">{receipt.receipt_number}</p>
               <p className="mt-1 text-sm font-semibold text-slate-500">{receipt.pack_type} - {receipt.amount} {receipt.currency || 'MAD'} - {formatDate(receipt.created_at)}</p>
             </div>
-            <button type="button" disabled={!receipt.pdf_path} onClick={() => openReceiptPdf(receipt.pdf_path)} className="rounded-2xl border border-[#dfe8df] bg-white px-4 py-2 text-sm font-black text-slate-700 hover:border-[#008f45] hover:text-[#008f45] disabled:opacity-60">
+            <button type="button" disabled={!receipt.pdf_path} onClick={() => openOwnReceiptPdf(receipt)} className="rounded-2xl border border-[#dfe8df] bg-white px-4 py-2 text-sm font-black text-slate-700 hover:border-[#008f45] hover:text-[#008f45] disabled:opacity-60">
               Download PDF
             </button>
           </div>

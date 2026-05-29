@@ -155,31 +155,6 @@ export async function deleteAdminUser(userId, { deleteAnalyses = false } = {}) {
 
 export async function runAdminPaymentAction(paymentId, action) {
   const client = requireSupabaseClient();
-  if (action === 'reject') {
-    const payment = await readPaymentRequest(client, paymentId);
-    if (!payment) throw new Error('Demande de paiement introuvable.');
-    const nowIso = new Date().toISOString();
-    const { error: paymentError } = await client.from('payment_requests').update({ status: 'rejected', updated_at: nowIso }).eq('id', paymentId);
-    if (paymentError) throw new Error(paymentError.message || 'Rejet paiement impossible.');
-
-    const { data: activeProfile } = await client
-      .from('profiles')
-      .select('id')
-      .eq('id', payment.user_id)
-      .eq('pack_status', 'active')
-      .gt('pack_end_at', nowIso)
-      .maybeSingle();
-
-    if (!activeProfile) {
-      await client
-        .from('profiles')
-        .update({ pack_status: 'free', pack_type: 'none', pack_start_at: null, pack_end_at: null })
-        .eq('id', payment.user_id);
-    }
-
-    return { rejected: true };
-  }
-
   const { data } = await client.auth.getSession();
   const token = data.session?.access_token;
 
@@ -290,12 +265,6 @@ async function fetchProfilesForRequests(client, requests = []) {
 
   if (error) return [];
   return data || [];
-}
-
-async function readPaymentRequest(client, paymentId) {
-  const { data, error } = await client.from('payment_requests').select('*').eq('id', paymentId).maybeSingle();
-  if (error) throw new Error(error.message || 'Demande de paiement introuvable.');
-  return data;
 }
 
 function normalizeAdminUser(profile = {}) {

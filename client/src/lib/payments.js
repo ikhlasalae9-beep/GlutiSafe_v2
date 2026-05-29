@@ -3,10 +3,16 @@ import { requireSupabaseClient } from './supabaseClient.js';
 
 export async function createManualPackRequest({ profile, packType, paymentMethod, userNote = '' }) {
   const client = requireSupabaseClient();
+  const { data: authData, error: authError } = await client.auth.getUser();
+  const user = authData?.user;
   const pack = getPackByType(packType);
 
-  if (!profile?.id) {
+  if (authError || !user?.id) {
     throw new Error('Connectez-vous pour demander un pack.');
+  }
+
+  if (profile?.id && profile.id !== user.id) {
+    throw new Error('Session utilisateur invalide.');
   }
 
   if (!['monthly', 'yearly'].includes(pack.packType)) {
@@ -20,7 +26,7 @@ export async function createManualPackRequest({ profile, packType, paymentMethod
   const { data: existingPending, error: existingError } = await client
     .from('payment_requests')
     .select('id')
-    .eq('user_id', profile.id)
+    .eq('user_id', user.id)
     .eq('status', 'pending')
     .maybeSingle();
 
@@ -36,7 +42,7 @@ export async function createManualPackRequest({ profile, packType, paymentMethod
   const { data, error } = await client
     .from('payment_requests')
     .insert({
-      user_id: profile.id,
+      user_id: user.id,
       pack_type: pack.packType,
       payment_method: paymentMethod,
       amount: getPackAmountDh(pack.packType, settings),
@@ -58,16 +64,24 @@ export async function createManualPackRequest({ profile, packType, paymentMethod
       pack_start_at: null,
       pack_end_at: null,
     })
-    .eq('id', profile.id);
+    .eq('id', user.id);
 
   return data;
 }
 
 export async function getMyPaymentRequests() {
   const client = requireSupabaseClient();
+  const { data: authData, error: authError } = await client.auth.getUser();
+  const user = authData?.user;
+
+  if (authError || !user?.id) {
+    throw new Error('Connectez-vous pour consulter vos demandes.');
+  }
+
   const { data, error } = await client
     .from('payment_requests')
     .select('*')
+    .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(20);
 

@@ -68,9 +68,25 @@ export async function saveAnalysis(entry) {
 }
 
 export async function deleteAnalysis(id, imagePath = '') {
-  const { error } = await requireSupabaseClient().from('analyses').delete().eq('id', id);
+  const user = await getCurrentUser();
+  if (!user) {
+    throw new Error('Connectez-vous pour supprimer cette analyse.');
+  }
+
+  const client = requireSupabaseClient();
+  const { data: row, error: readError } = await client
+    .from('analyses')
+    .select('id, image_path')
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (readError) throw new Error(readError.message || "Impossible de verifier l'analyse.");
+  if (!row) throw new Error("Analyse introuvable.");
+
+  const { error } = await client.from('analyses').delete().eq('id', id).eq('user_id', user.id);
   if (error) throw new Error(error.message || "Impossible de supprimer l'analyse.");
-  if (imagePath) await deleteAnalysisImage(imagePath);
+  if (row.image_path) await deleteAnalysisImage(row.image_path);
   return getHistory();
 }
 
