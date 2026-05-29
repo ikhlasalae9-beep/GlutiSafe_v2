@@ -61,19 +61,8 @@ export async function loginUser({ email, password }) {
   return toAppUser(data.user);
 }
 
-export async function signInWithOAuthProvider(provider) {
-  const client = requireSupabaseClient();
-  const { error } = await client.auth.signInWithOAuth({
-    provider,
-    options: {
-      redirectTo: `${window.location.origin}/auth/callback`,
-    },
-  });
-
-  if (error) {
-    if (provider === 'apple') throw new Error('Connexion Apple non configurée pour le moment.');
-    throw new Error(cleanAuthError(error));
-  }
+export async function signInWithOAuthProvider() {
+  throw new Error('Connexion sociale bientôt disponible.');
 }
 
 export async function requestPasswordReset(email) {

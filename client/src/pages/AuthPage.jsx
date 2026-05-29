@@ -2,7 +2,7 @@ import { Apple, Chrome, HeartPulse, Leaf, Lock, Mail, ShieldCheck, UserRound } f
 import { useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import Button from '../components/Button.jsx';
-import { loginUser, registerUser, signInWithOAuthProvider } from '../lib/auth.js';
+import { loginUser, registerUser } from '../lib/auth.js';
 
 export default function AuthPage({ mode = 'register' }) {
   const isRegister = mode === 'register';
@@ -43,18 +43,6 @@ export default function AuthPage({ mode = 'register' }) {
     } catch (submitError) {
       setError(submitError.message || 'Impossible de finaliser cette action.');
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleOAuth = async (provider) => {
-    setError('');
-    setSuccess('');
-    setLoading(true);
-    try {
-      await signInWithOAuthProvider(provider);
-    } catch (oauthError) {
-      setError(oauthError.message || 'Connexion OAuth impossible.');
       setLoading(false);
     }
   };
@@ -132,12 +120,13 @@ export default function AuthPage({ mode = 'register' }) {
           </div>
 
           <div className="grid gap-3">
-            <OAuthButton icon={Chrome} disabled={loading} onClick={() => handleOAuth('google')}>
-              Continuer avec Google
+            <OAuthButton icon={Chrome} disabled>
+              Google - Bientôt disponible
             </OAuthButton>
-            <OAuthButton icon={Apple} disabled={loading} onClick={() => handleOAuth('apple')}>
-              Continuer avec Apple
+            <OAuthButton icon={Apple} disabled>
+              Apple - Bientôt disponible
             </OAuthButton>
+            <p className="text-center text-sm font-semibold text-slate-500">Connexion sociale bientôt disponible.</p>
           </div>
 
           {!isRegister ? (
