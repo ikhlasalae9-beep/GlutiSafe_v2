@@ -61,10 +61,6 @@ export async function loginUser({ email, password }) {
   return toAppUser(data.user);
 }
 
-export async function signInWithOAuthProvider() {
-  throw new Error('Connexion sociale bientôt disponible.');
-}
-
 export async function requestPasswordReset(email) {
   const client = requireSupabaseClient();
   const normalizedEmail = normalizeEmail(email);

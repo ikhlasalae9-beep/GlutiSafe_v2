@@ -1,4 +1,4 @@
-import { Apple, Chrome, HeartPulse, Leaf, Lock, Mail, ShieldCheck, UserRound } from 'lucide-react';
+import { HeartPulse, Leaf, Lock, Mail, ShieldCheck, UserRound } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import Button from '../components/Button.jsx';
@@ -113,22 +113,6 @@ export default function AuthPage({ mode = 'register' }) {
             </Button>
           </form>
 
-          <div className="my-6 flex items-center gap-3">
-            <span className="h-px flex-1 bg-[#dfe8df]" />
-            <span className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">ou</span>
-            <span className="h-px flex-1 bg-[#dfe8df]" />
-          </div>
-
-          <div className="grid gap-3">
-            <OAuthButton icon={Chrome} disabled>
-              Google - Bientôt disponible
-            </OAuthButton>
-            <OAuthButton icon={Apple} disabled>
-              Apple - Bientôt disponible
-            </OAuthButton>
-            <p className="text-center text-sm font-semibold text-slate-500">Connexion sociale bientôt disponible.</p>
-          </div>
-
           {!isRegister ? (
             <p className="mt-5 text-center text-sm">
               <Link className="font-bold text-[#008f45] hover:text-[#004b3a]" to="/forgot-password">
@@ -155,19 +139,6 @@ function Field({ icon: Icon, ...props }) {
       <Icon className="h-5 w-5 text-slate-400" aria-hidden="true" />
       <input className="w-full bg-transparent text-[#1d252b] outline-none placeholder:text-slate-400" {...props} />
     </span>
-  );
-}
-
-function OAuthButton({ icon: Icon, children, ...props }) {
-  return (
-    <button
-      type="button"
-      className="inline-flex w-full items-center justify-center gap-3 rounded-2xl border border-[#dfe8df] bg-white px-5 py-3 text-sm font-black text-[#1d252b] transition hover:border-[#008f45] hover:text-[#008f45] disabled:opacity-60"
-      {...props}
-    >
-      <Icon className="h-5 w-5" aria-hidden="true" />
-      {children}
-    </button>
   );
 }
 
