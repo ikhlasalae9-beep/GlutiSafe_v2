@@ -1,5 +1,6 @@
 import { Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { openReceiptPdf } from '../../lib/receipts.js';
 
 const TABS = [
   { id: 'pending', label: 'Demandes en attente' },
@@ -9,7 +10,7 @@ const TABS = [
   { id: 'rejected', label: 'Demandes rejetees' },
 ];
 
-export default function AdminPacksPage({ users, subscriptions, payments = [], actionLoading, onAction, onPaymentAction }) {
+export default function AdminPacksPage({ users, subscriptions, payments = [], receipts = [], actionLoading, onAction, onPaymentAction, onReceiptAction }) {
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState('pending');
 
@@ -100,6 +101,8 @@ export default function AdminPacksPage({ users, subscriptions, payments = [], ac
           ))}
         </div>
       </section>
+
+      <ReceiptsSection receipts={receipts} actionLoading={actionLoading} onReceiptAction={onReceiptAction} />
     </div>
   );
 }
@@ -174,6 +177,43 @@ function UserPacks({ users, actionLoading, onAction }) {
         </article>
       ))}
       {users.length === 0 ? <p className="rounded-[1.25rem] border border-[#dfe8df] bg-white p-8 text-center text-sm font-bold text-slate-500">Aucun utilisateur trouve.</p> : null}
+    </section>
+  );
+}
+
+function ReceiptsSection({ receipts = [], actionLoading, onReceiptAction }) {
+  return (
+    <section className="rounded-[1.25rem] border border-[#dfe8df] bg-white p-5 shadow-sm">
+      <h2 className="text-lg font-extrabold text-[#1d252b]">Reçus récents</h2>
+      <div className="mt-4 grid gap-3">
+        {receipts.length === 0 ? <p className="text-sm font-bold text-slate-500">Aucun reçu disponible.</p> : null}
+        {receipts.slice(0, 20).map((receipt) => (
+          <div key={receipt.id} className="rounded-2xl border border-[#dfe8df] bg-[#f7f8f6] p-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="font-black text-[#1d252b]">{receipt.receiptNumber}</p>
+                <p className="text-sm font-semibold text-slate-500">{receipt.userName} - {receipt.userEmail}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Badge>{receipt.packLabel}</Badge>
+                  <Badge>{receipt.amount ?? '-'} {receipt.currency}</Badge>
+                  <Badge>{formatDateTime(receipt.createdAt)}</Badge>
+                  <Badge>{receipt.emailSent ? 'Email envoyé' : 'Email non envoyé'}</Badge>
+                </div>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2 lg:min-w-72">
+                <Action disabled={!receipt.pdfPath} onClick={() => openReceiptPdf(receipt.pdfPath)}>
+                  Download PDF
+                </Action>
+                {!receipt.emailSent ? (
+                  <Action disabled={actionLoading === `${receipt.id}:resend-email`} onClick={() => onReceiptAction?.(receipt, 'resend-email')}>
+                    Resend email
+                  </Action>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }

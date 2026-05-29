@@ -1,6 +1,7 @@
 const SUPABASE_REST_PATH = '/rest/v1';
 const STORAGE_WARNING = 'Base de donnees non configuree. Ajoutez SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY dans Vercel.';
 const FREE_AI_MESSAGES_LIMIT = 5;
+const RECEIPT_BUCKET = 'pack-receipts';
 
 export async function getRequesterPackAccess({ requesterToken } = {}) {
   const config = requireSupabaseConfig();
@@ -290,7 +291,7 @@ export async function confirmPayment({ requesterToken, paymentId }) {
   const payment = await readPayment(config, paymentId);
 
   if (!payment) {
-    const error = new Error('Paiement introuvable.');
+    const error = new Error('Demande de paiement introuvable.');
     error.status = 404;
     throw error;
   }
@@ -304,14 +305,16 @@ export async function confirmPayment({ requesterToken, paymentId }) {
 
   const now = new Date();
   const end = addPackDuration(now, packType);
+  const nowIso = now.toISOString();
+  const endIso = end.toISOString();
 
-  await updatePayment(config, paymentId, { status: 'confirmed' });
+  await updatePayment(config, paymentId, { status: 'confirmed', confirmed_by: admin.id, confirmed_at: nowIso, updated_at: nowIso });
 
   const profile = await updateProfile(config, payment.user_id, {
     pack_status: 'active',
     pack_type: packType,
-    pack_start_at: now.toISOString(),
-    pack_end_at: end.toISOString(),
+    pack_start_at: nowIso,
+    pack_end_at: endIso,
   });
 
   const updated = await updateSubscriptions(config, {
@@ -320,8 +323,8 @@ export async function confirmPayment({ requesterToken, paymentId }) {
     fromStatus: 'pending',
     body: {
       status: 'active',
-      start_date: now.toISOString(),
-      end_date: end.toISOString(),
+      start_date: nowIso,
+      end_date: endIso,
       activated_by: admin.id,
     },
   });
@@ -334,14 +337,37 @@ export async function confirmPayment({ requesterToken, paymentId }) {
         user_id: payment.user_id,
         pack_name: packType,
         status: 'active',
-        start_date: now.toISOString(),
-        end_date: end.toISOString(),
+        start_date: nowIso,
+        end_date: endIso,
         activated_by: admin.id,
       },
     });
   }
 
-  return { confirmed: true, profile };
+  const receipt = await createPackReceipt(config, {
+    payment,
+    profile,
+    packType,
+    startIso: nowIso,
+    endIso,
+  });
+  const emailResult = await sendReceiptEmail(config, receipt).catch((error) => {
+    console.error('[receipt-email] send failed', { message: error.message });
+    return { sent: false, reason: error.message };
+  });
+
+  if (emailResult.sent) {
+    await updateReceipt(config, receipt.id, { email_sent: true, email_sent_at: new Date().toISOString() });
+  }
+
+  return {
+    confirmed: true,
+    profile,
+    receipt: { ...receipt, email_sent: Boolean(emailResult.sent) },
+    emailSent: Boolean(emailResult.sent),
+    message: emailResult.sent ? 'Pack activé, reçu généré, e-mail envoyé.' : 'Pack activé et reçu généré, mais e-mail non envoyé.',
+    warning: emailResult.sent ? '' : "Pack activé, mais l'e-mail n'a pas été envoyé car le service e-mail n'est pas configuré.",
+  };
 }
 
 export async function rejectPayment({ requesterToken, paymentId }) {
@@ -374,6 +400,25 @@ export async function rejectPayment({ requesterToken, paymentId }) {
   }
 
   return { rejected: true, payment };
+}
+
+export async function resendReceiptEmail({ requesterToken, receiptId }) {
+  const config = requireSupabaseConfig();
+  await requireAdmin(config, requesterToken);
+  const receipt = await readReceipt(config, receiptId);
+
+  if (!receipt) {
+    const error = new Error('Reçu introuvable.');
+    error.status = 404;
+    throw error;
+  }
+
+  const emailResult = await sendReceiptEmail(config, receipt);
+  if (emailResult.sent) {
+    await updateReceipt(config, receipt.id, { email_sent: true, email_sent_at: new Date().toISOString() });
+  }
+
+  return { sent: Boolean(emailResult.sent), receiptId: receipt.id };
 }
 
 export async function deleteUserAccount({ requesterToken, userId, deleteAnalyses = false }) {
@@ -521,7 +566,7 @@ async function updateProfile(config, userId, body) {
 }
 
 async function readPayment(config, paymentId) {
-  const rows = await supabaseRequest(config, 'payments', {
+  const rows = await supabaseRequest(config, 'payment_requests', {
     method: 'GET',
     query: { select: '*', id: `eq.${paymentId}`, limit: '1' },
   });
@@ -529,13 +574,235 @@ async function readPayment(config, paymentId) {
 }
 
 async function updatePayment(config, paymentId, body) {
-  const rows = await supabaseRequest(config, 'payments', {
+  const rows = await supabaseRequest(config, 'payment_requests', {
     method: 'PATCH',
     query: { id: `eq.${paymentId}`, select: '*' },
     headers: { Prefer: 'return=representation' },
     body,
   });
   return Array.isArray(rows) ? rows[0] : null;
+}
+
+async function createPackReceipt(config, { payment, profile, packType, startIso, endIso }) {
+  const receiptNumber = buildReceiptNumber();
+  const customerName = profile?.full_name || profile?.email?.split('@')[0] || 'Client GlutiSafe';
+  const customerEmail = profile?.email || '';
+  const receiptPayload = {
+    user_id: payment.user_id,
+    payment_request_id: payment.id,
+    pack_type: packType,
+    amount: Number(payment.amount || packAmount(packType)),
+    currency: 'MAD',
+    receipt_number: receiptNumber,
+    customer_name: customerName,
+    customer_email: customerEmail,
+    payment_method: payment.payment_method || 'manual',
+    pack_start_at: startIso,
+    pack_end_at: endIso,
+    email_sent: false,
+  };
+
+  const rows = await supabaseRequest(config, 'pack_receipts', {
+    method: 'POST',
+    query: { select: '*' },
+    headers: { Prefer: 'return=representation' },
+    body: receiptPayload,
+  });
+  const receipt = Array.isArray(rows) ? rows[0] : rows;
+  const pdfPath = `receipts/${payment.user_id}/${receiptNumber}.pdf`;
+  const pdfBuffer = generateReceiptPdf({
+    ...receiptPayload,
+    created_at: new Date().toISOString(),
+  });
+
+  await uploadReceiptPdf(config, pdfPath, pdfBuffer);
+  return updateReceipt(config, receipt.id, { pdf_path: pdfPath });
+}
+
+async function readReceipt(config, receiptId) {
+  const rows = await supabaseRequest(config, 'pack_receipts', {
+    method: 'GET',
+    query: { select: '*', id: `eq.${receiptId}`, limit: '1' },
+  });
+  return Array.isArray(rows) ? rows[0] : null;
+}
+
+async function updateReceipt(config, receiptId, body) {
+  const rows = await supabaseRequest(config, 'pack_receipts', {
+    method: 'PATCH',
+    query: { id: `eq.${receiptId}`, select: '*' },
+    headers: { Prefer: 'return=representation' },
+    body,
+  });
+  return Array.isArray(rows) ? rows[0] : null;
+}
+
+async function uploadReceiptPdf(config, path, pdfBuffer) {
+  const response = await fetch(`${config.url}/storage/v1/object/${RECEIPT_BUCKET}/${path}`, {
+    method: 'PUT',
+    headers: {
+      apikey: config.serviceRoleKey,
+      Authorization: `Bearer ${config.serviceRoleKey}`,
+      'Content-Type': 'application/pdf',
+      'x-upsert': 'true',
+    },
+    body: pdfBuffer,
+  });
+
+  if (!response.ok) {
+    const error = new Error('Impossible de sauvegarder le PDF du reçu.');
+    error.status = response.status;
+    error.details = await response.text().catch(() => '');
+    throw error;
+  }
+}
+
+async function sendReceiptEmail(config, receipt) {
+  const provider = cleanText(process.env.EMAIL_PROVIDER || 'resend').toLowerCase();
+  const apiKey = cleanText(process.env.RESEND_API_KEY);
+  const from = cleanText(process.env.FROM_EMAIL) || 'GlutiSafe <no-reply@glutisafe.com>';
+  const siteUrl = cleanText(process.env.VITE_SITE_URL || process.env.SITE_URL || 'https://gluti-safe-v2.vercel.app');
+
+  if (provider !== 'resend' || !apiKey || !receipt?.customer_email) {
+    return { sent: false, reason: 'EMAIL_NOT_CONFIGURED' };
+  }
+
+  const packLabel = receipt.pack_type === 'yearly' ? 'Annuel' : 'Mensuel';
+  const html = `
+    <div style="font-family:Arial,sans-serif;color:#1d252b;line-height:1.6">
+      <h1 style="color:#008f45">Votre pack GlutiSafe est activé</h1>
+      <p>Bonjour ${escapeHtml(receipt.customer_name || 'Client')},</p>
+      <p>Votre paiement a été confirmé et votre Pack ${packLabel} est maintenant actif.</p>
+      <p><strong>Date de début:</strong> ${formatFrenchDate(receipt.pack_start_at)}<br />
+      <strong>Date de fin:</strong> ${formatFrenchDate(receipt.pack_end_at)}</p>
+      <p>Vous pouvez télécharger votre reçu depuis votre profil GlutiSafe.</p>
+      <p><a href="${siteUrl}/profile" style="display:inline-block;background:#008f45;color:#fff;text-decoration:none;padding:12px 18px;border-radius:12px;font-weight:bold">Accéder à mon espace</a></p>
+    </div>
+  `;
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from,
+      to: receipt.customer_email,
+      subject: 'Votre pack GlutiSafe est activé',
+      html,
+    }),
+  });
+
+  if (!response.ok) {
+    const details = await response.text().catch(() => '');
+    const error = new Error('Email non envoyé.');
+    error.status = response.status;
+    error.details = details;
+    throw error;
+  }
+
+  return { sent: true };
+}
+
+function generateReceiptPdf(receipt) {
+  const packLabel = receipt.pack_type === 'yearly' ? 'Pack Annuel' : 'Pack Mensuel';
+  const methodLabel = receipt.payment_method === 'cashplus' ? 'CashPlus' : receipt.payment_method === 'rib' ? 'RIB' : 'Manuel';
+  const rows = [
+    ['Numéro de reçu', receipt.receipt_number],
+    ['Date de confirmation', formatFrenchDate(receipt.created_at)],
+    ['Nom du client', receipt.customer_name],
+    ['Email du client', receipt.customer_email],
+    ['Pack activé', packLabel],
+    ['Méthode de paiement', methodLabel],
+    ['Montant payé', `${receipt.amount} ${receipt.currency || 'MAD'}`],
+    ['Date de début', formatFrenchDate(receipt.pack_start_at)],
+    ['Date de fin', formatFrenchDate(receipt.pack_end_at)],
+    ['Statut', 'Confirmé'],
+  ];
+
+  const content = [
+    'q 0.00 0.56 0.27 rg 0 792 595 -92 re f Q',
+    'BT /F1 28 Tf 54 742 Td (GlutiSafe) Tj ET',
+    'BT /F2 11 Tf 54 722 Td (Scan, Check, Stay Safe) Tj ET',
+    "BT /F1 20 Tf 54 674 Td (Reçu d\\'activation du pack) Tj ET",
+    'q 0.91 0.96 0.91 rg 54 638 487 1 re f Q',
+    ...rows.flatMap(([label, value], index) => {
+      const y = 604 - index * 32;
+      return [
+        `BT /F2 10 Tf 70 ${y} Td (${pdfEscape(label)}) Tj ET`,
+        `BT /F1 11 Tf 255 ${y} Td (${pdfEscape(value)}) Tj ET`,
+        `q 0.88 0.91 0.88 rg 64 ${y - 12} 467 0.7 re f Q`,
+      ];
+    }),
+    'q 0.95 0.98 0.95 rg 54 146 487 78 re f Q',
+    'BT /F1 12 Tf 70 192 Td (Merci pour votre confiance.) Tj ET',
+    "BT /F2 9 Tf 70 172 Td (GlutiSafe aide à analyser les ingrédients visibles d\\'un produit.) Tj ET",
+    "BT /F2 9 Tf 70 158 Td (L\\'application ne remplace pas une certification officielle.) Tj ET",
+  ].join('\n');
+
+  return makePdfBuffer(content);
+}
+
+function makePdfBuffer(pageContent) {
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
+    `<< /Length ${latin1ByteLength(pageContent)} >>\nstream\n${pageContent}\nendstream`,
+  ];
+  let pdf = '%PDF-1.4\n';
+  const offsets = [0];
+
+  objects.forEach((object, index) => {
+    offsets.push(latin1ByteLength(pdf));
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+
+  const xrefOffset = latin1ByteLength(pdf);
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  offsets.slice(1).forEach((offset) => {
+    pdf += `${String(offset).padStart(10, '0')} 00000 n \n`;
+  });
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+  return Buffer.from(pdf, 'latin1');
+}
+
+function latin1ByteLength(value) {
+  return Buffer.byteLength(value, 'latin1');
+}
+
+function buildReceiptNumber() {
+  const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const random = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return `GS-${date}-${random}`;
+}
+
+function pdfEscape(value) {
+  return String(value || '-')
+    .replace(/\\/g, '\\\\')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)')
+    .replace(/\r?\n/g, ' ')
+    .slice(0, 90);
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function formatFrenchDate(value) {
+  if (!value) return '-';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString('fr-FR');
 }
 
 async function rejectPendingSubscriptions(config, userId) {

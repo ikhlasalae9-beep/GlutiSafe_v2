@@ -1,4 +1,5 @@
 import { API_URL } from '../config/api.js';
+import { createReceiptSignedUrl } from './receipts.js';
 import { cleanSupabaseError, getCurrentProfile } from './auth.js';
 import {
   describeCurrentPack,
@@ -18,6 +19,7 @@ const DASHBOARD_LIMITS = {
   analyses: 1000,
   subscriptions: 500,
   paymentRequests: 500,
+  receipts: 500,
 };
 
 export async function fetchAdminDashboard() {
@@ -28,7 +30,7 @@ export async function fetchAdminDashboard() {
     throw new Error("Accès refusé. Ce compte n'est pas administrateur.");
   }
 
-  const [profilesResult, analysesResult, subscriptionsResult, paymentRequestsResult, pendingRequestsCountResult, packSettings, paymentSettings] = await Promise.all([
+  const [profilesResult, analysesResult, subscriptionsResult, paymentRequestsResult, receiptsResult, pendingRequestsCountResult, packSettings, paymentSettings] = await Promise.all([
     client
       .from('profiles')
       .select('id, full_name, email, role, pack_status, pack_type, pack_start_at, pack_end_at, created_at')
@@ -43,6 +45,7 @@ export async function fetchAdminDashboard() {
       .limit(DASHBOARD_LIMITS.analyses),
     fetchOptionalSubscriptions(client),
     fetchOptionalPaymentRequests(client),
+    fetchOptionalReceipts(client),
     fetchPendingPaymentRequestsCount(client),
     getPackSettings(),
     getPaymentSettings(),
@@ -55,13 +58,14 @@ export async function fetchAdminDashboard() {
 
   const users = (profilesResult.data || []).map(normalizeAdminUser);
   const userById = new Map(users.map((user) => [user.id, user]));
-  const requestProfiles = await fetchProfilesForRequests(client, paymentRequestsResult.data || []);
+  const requestProfiles = await fetchProfilesForRequests(client, [...(paymentRequestsResult.data || []), ...(receiptsResult.data || [])]);
   requestProfiles.forEach((requestProfile) => {
     userById.set(requestProfile.id, normalizeAdminUser(requestProfile));
   });
   const analyses = (analysesResult.data || []).map((analysis) => normalizeAdminAnalysis(analysis, userById));
   const subscriptions = (subscriptionsResult.data || []).map((subscription) => normalizeSubscription(subscription, userById));
   const payments = (paymentRequestsResult.data || []).map((payment) => normalizePaymentRequest(payment, userById));
+  const receipts = (receiptsResult.data || []).map((receipt) => normalizeReceipt(receipt, userById));
   const pendingPaymentRequests = payments.filter((payment) => payment.status === 'pending');
   const mainAdmin = users.find((user) => user.role === 'admin');
   const scanStats = buildScanStats(analyses);
@@ -79,6 +83,7 @@ export async function fetchAdminDashboard() {
     analyses,
     subscriptions,
     payments,
+    receipts,
     pendingPaymentRequests,
     packSettings,
     paymentSettings,
@@ -150,46 +155,9 @@ export async function deleteAdminUser(userId, { deleteAnalyses = false } = {}) {
 
 export async function runAdminPaymentAction(paymentId, action) {
   const client = requireSupabaseClient();
-  const payment = await readPaymentRequest(client, paymentId);
-  if (!payment) throw new Error('Demande de paiement introuvable.');
-
-  if (action === 'confirm') {
-    const { data: authData } = await client.auth.getUser();
-    const adminId = authData.user?.id || null;
-    const now = new Date();
-    const end = new Date(now);
-    end.setDate(end.getDate() + (payment.pack_type === 'yearly' ? 365 : 30));
-
-    const { error: paymentError } = await client
-      .from('payment_requests')
-      .update({ status: 'confirmed', confirmed_by: adminId, confirmed_at: now.toISOString(), updated_at: now.toISOString() })
-      .eq('id', paymentId);
-    if (paymentError) throw new Error(paymentError.message || 'Confirmation paiement impossible.');
-
-    const { error: profileError } = await client
-      .from('profiles')
-      .update({
-        pack_status: 'active',
-        pack_type: payment.pack_type,
-        pack_start_at: now.toISOString(),
-        pack_end_at: end.toISOString(),
-      })
-      .eq('id', payment.user_id);
-    if (profileError) throw new Error(profileError.message || 'Activation pack impossible.');
-
-    await client.from('subscriptions').insert({
-      user_id: payment.user_id,
-      status: 'active',
-      pack_name: payment.pack_type,
-      start_date: now.toISOString(),
-      end_date: end.toISOString(),
-      activated_by: adminId,
-    });
-
-    return { confirmed: true };
-  }
-
   if (action === 'reject') {
+    const payment = await readPaymentRequest(client, paymentId);
+    if (!payment) throw new Error('Demande de paiement introuvable.');
     const nowIso = new Date().toISOString();
     const { error: paymentError } = await client.from('payment_requests').update({ status: 'rejected', updated_at: nowIso }).eq('id', paymentId);
     if (paymentError) throw new Error(paymentError.message || 'Rejet paiement impossible.');
@@ -212,7 +180,24 @@ export async function runAdminPaymentAction(paymentId, action) {
     return { rejected: true };
   }
 
-  throw new Error('Action paiement inconnue.');
+  const { data } = await client.auth.getSession();
+  const token = data.session?.access_token;
+
+  if (!token) {
+    throw new Error('Session admin introuvable.');
+  }
+
+  const response = await fetch(`${API_URL}/api/admin/payments/${paymentId}/${action}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  return readAdminActionResponse(response);
+}
+
+export async function downloadReceiptPdf(pdfPath) {
+  const signedUrl = await createReceiptSignedUrl(pdfPath);
+  window.open(signedUrl, '_blank', 'noopener,noreferrer');
 }
 
 export async function fetchAdminStats() {
@@ -269,6 +254,20 @@ async function fetchOptionalPaymentRequests(client) {
   }
 
   return { data: [...(pendingResult.data || []), ...(rejectedResult.data || [])], error: null };
+}
+
+async function fetchOptionalReceipts(client) {
+  const result = await client
+    .from('pack_receipts')
+    .select('id, user_id, payment_request_id, pack_type, amount, currency, receipt_number, customer_name, customer_email, payment_method, pack_start_at, pack_end_at, pdf_path, email_sent, email_sent_at, created_at')
+    .order('created_at', { ascending: false })
+    .limit(DASHBOARD_LIMITS.receipts);
+
+  if (result.error) {
+    return { data: [], error: null, unavailable: true };
+  }
+
+  return result;
 }
 
 async function fetchPendingPaymentRequestsCount(client) {
@@ -384,6 +383,29 @@ function normalizePaymentRequest(payment = {}, userById = new Map()) {
     rejectedAt: payment.rejected_at || null,
     createdAt: payment.created_at || null,
     updatedAt: payment.updated_at || null,
+  };
+}
+
+function normalizeReceipt(receipt = {}, userById = new Map()) {
+  const user = userById.get(receipt.user_id);
+  return {
+    id: receipt.id,
+    userId: receipt.user_id,
+    paymentRequestId: receipt.payment_request_id || null,
+    receiptNumber: receipt.receipt_number || '',
+    userName: receipt.customer_name || user?.name || 'Utilisateur',
+    userEmail: receipt.customer_email || user?.email || '',
+    packType: normalizePackType(receipt.pack_type),
+    packLabel: getPackTypeLabel(receipt.pack_type, 'active'),
+    amount: receipt.amount ?? null,
+    currency: receipt.currency || 'MAD',
+    paymentMethod: receipt.payment_method || '',
+    packStartAt: receipt.pack_start_at || null,
+    packEndAt: receipt.pack_end_at || null,
+    pdfPath: receipt.pdf_path || '',
+    emailSent: Boolean(receipt.email_sent),
+    emailSentAt: receipt.email_sent_at || null,
+    createdAt: receipt.created_at || null,
   };
 }
 

@@ -8,6 +8,7 @@ import { getHistory, isAlertHistoryItem, isSafeHistoryItem } from '../lib/histor
 import { getMyPaymentRequests } from '../lib/payments.js';
 import { formatTokenReset, getTokenSnapshot } from '../lib/packUsage.js';
 import { PACKS } from '../lib/packs.js';
+import { getMyReceipts, openReceiptPdf } from '../lib/receipts.js';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
@@ -16,6 +17,7 @@ export default function ProfilePage() {
   const [tokenInfo, setTokenInfo] = useState(null);
   const [aiUsage, setAiUsage] = useState(null);
   const [pendingRequest, setPendingRequest] = useState(null);
+  const [receipts, setReceipts] = useState([]);
 
   useEffect(() => {
     let active = true;
@@ -27,13 +29,14 @@ export default function ProfilePage() {
         return;
       }
 
-      const [rows, snapshot, requests, aiMessages] = await Promise.all([getHistory(), getTokenSnapshot(currentUser), getMyPaymentRequests(), getMyAiMessageUsage(currentUser.id)]);
+      const [rows, snapshot, requests, aiMessages, receiptRows] = await Promise.all([getHistory(), getTokenSnapshot(currentUser), getMyPaymentRequests(), getMyAiMessageUsage(currentUser.id), getMyReceipts()]);
       if (!active) return;
       setUser(currentUser);
       setHistory(rows);
       setTokenInfo(snapshot);
       setAiUsage(aiMessages);
       setPendingRequest(requests.find((request) => request.status === 'pending') || null);
+      setReceipts(receiptRows);
     }
 
     loadProfile().catch(() => {
@@ -106,8 +109,16 @@ export default function ProfilePage() {
             </div>
           </Panel>
 
+          <Panel icon={WalletCards} title="Statut du pack">
+            <PackStatusSection user={user} tokenInfo={tokenInfo} pendingRequest={pendingRequest} receipts={receipts} />
+          </Panel>
+
           <Panel icon={WalletCards} title="Usage">
             <UsageSection user={user} tokenInfo={tokenInfo} aiUsage={aiUsage} />
+          </Panel>
+
+          <Panel icon={WalletCards} title="Mes reçus">
+            <ReceiptsSection receipts={receipts} />
           </Panel>
 
           <Panel icon={Bell} title="Contrôle du compte">
@@ -202,6 +213,67 @@ function UsageSection({ user, tokenInfo, aiUsage }) {
           {Number(aiUsage?.used || 0) >= 5 ? ' - Limite IA atteinte' : ''}
         </p>
       ) : null}
+    </div>
+  );
+}
+
+function PackStatusSection({ user, tokenInfo, pendingRequest, receipts }) {
+  const used = Number(tokenInfo?.used || 0);
+  const limit = Number(tokenInfo?.limit || 0);
+  const percentage = limit > 0 ? Math.min((used / limit) * 100, 100) : 0;
+  const statusMessage = pendingRequest
+    ? "Votre demande est en cours de vérification par l'administration."
+    : tokenInfo?.packStatus === 'active'
+      ? `Votre pack est actif jusqu'au ${formatDate(user.packEndAt)}.`
+      : '';
+
+  return (
+    <div className="rounded-[1.25rem] border border-[#dfe8df] bg-[#f7f8f6] p-5">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Pack actuel" value={getUsagePackLabel(user, tokenInfo)} />
+        <Field label="Statut" value={user.packStatus || tokenInfo?.packStatus || 'free'} />
+        <Field label="Date d'activation" value={formatDate(user.packStartAt)} />
+        <Field label="Date d'expiration" value={formatDate(user.packEndAt)} />
+      </div>
+      {statusMessage ? <p className="mt-4 rounded-2xl border border-emerald-200 bg-white px-4 py-3 text-sm font-black text-emerald-800">{statusMessage}</p> : null}
+      <div className="mt-4">
+        <div className="mb-2 flex items-center justify-between text-sm font-black text-slate-700">
+          <span>Tokens restants</span>
+          <span>{Number(tokenInfo?.remaining || 0)} / {limit}</span>
+        </div>
+        <div className="h-3 overflow-hidden rounded-full bg-white ring-1 ring-[#dfe8df]">
+          <div className="h-full rounded-full bg-[#008f45]" style={{ width: `${percentage}%` }} />
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={() => document.getElementById('profile-receipts')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+        className="mt-5 inline-flex items-center justify-center rounded-2xl bg-[#008f45] px-5 py-3 text-sm font-black text-white disabled:opacity-60"
+        disabled={!receipts.length}
+      >
+        Voir mes reçus
+      </button>
+    </div>
+  );
+}
+
+function ReceiptsSection({ receipts }) {
+  return (
+    <div id="profile-receipts" className="grid gap-3">
+      {receipts.length === 0 ? <p className="rounded-2xl border border-[#dfe8df] bg-[#f7f8f6] p-4 text-sm font-bold text-slate-500">Aucun reçu disponible.</p> : null}
+      {receipts.map((receipt) => (
+        <div key={receipt.id} className="rounded-2xl border border-[#dfe8df] bg-[#f7f8f6] p-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-black text-[#1d252b]">{receipt.receipt_number}</p>
+              <p className="mt-1 text-sm font-semibold text-slate-500">{receipt.pack_type} - {receipt.amount} {receipt.currency || 'MAD'} - {formatDate(receipt.created_at)}</p>
+            </div>
+            <button type="button" disabled={!receipt.pdf_path} onClick={() => openReceiptPdf(receipt.pdf_path)} className="rounded-2xl border border-[#dfe8df] bg-white px-4 py-2 text-sm font-black text-slate-700 hover:border-[#008f45] hover:text-[#008f45] disabled:opacity-60">
+              Download PDF
+            </button>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

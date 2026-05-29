@@ -12,6 +12,7 @@ import {
   makeUserAdmin,
   readAdminStats,
   rejectPayment,
+  resendReceiptEmail,
   unblockUser,
 } from '../src/server/adminStats.js';
 import { GLUTISAFE_SYSTEM_PROMPT, createChatCompletion } from '../src/server/aiService.js';
@@ -76,6 +77,11 @@ export default async function handler(req, res) {
     const adminPaymentMatch = pathname.match(/^\/api\/admin\/payments\/([^/]+)\/([^/]+)$/);
     if (req.method === 'POST' && adminPaymentMatch) {
       return handleAdminPaymentAction(req, res, decodeURIComponent(adminPaymentMatch[1]), adminPaymentMatch[2]);
+    }
+
+    const adminReceiptMatch = pathname.match(/^\/api\/admin\/receipts\/([^/]+)\/resend$/);
+    if (req.method === 'POST' && adminReceiptMatch) {
+      return sendAdminResult(res, resendReceiptEmail({ requesterToken: readBearerToken(req), receiptId: decodeURIComponent(adminReceiptMatch[1]) }));
     }
 
     if (req.method === 'POST' && pathname === '/api/admin/activate-pack') {
