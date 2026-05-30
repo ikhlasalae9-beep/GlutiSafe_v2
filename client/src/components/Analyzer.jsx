@@ -286,7 +286,11 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
     setFlowState('result_ready');
     setEditingAfterResult(false);
     setExplanationLoading(isPaid);
-    saveChatbotScanContext(result, analysisText);
+    saveChatbotScanContext(result, analysisText, {
+      productName: productName || 'Produit sans nom',
+      userPack: tokenInfo?.packType || usage.packType || (usage.isPaid ? 'premium' : 'free'),
+      packStatus: tokenInfo?.packStatus || usage.packStatus || (usage.isPaid ? 'active' : 'free'),
+    });
     onResult({
       ...result,
       text: analysisText,
@@ -502,16 +506,20 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
   );
 }
 
-function saveChatbotScanContext(result, text) {
+function saveChatbotScanContext(result, text, meta = {}) {
   try {
     sessionStorage.setItem(
       CHATBOT_CONTEXT_KEY,
       JSON.stringify({
         lastScanResult: result.analysis,
+        productName: meta.productName || 'Produit sans nom',
         ingredients: text,
+        detectedText: text,
         verdict: result.analysis?.status || result.analysis?.label,
         detectedRiskyIngredients: result.analysis?.detectedWords || [],
         warnings: result.analysis?.possibleWords || [],
+        userPack: meta.userPack || 'unknown',
+        packStatus: meta.packStatus || 'unknown',
       }),
     );
   } catch {

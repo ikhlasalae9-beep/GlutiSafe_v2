@@ -68,40 +68,52 @@ function buildUserPrompt(message, context = {}) {
     context && typeof context === 'object' && !Array.isArray(context)
       ? context
       : {};
-  const includeContext = hasMeaningfulScanContext(safeContext) && isScanRelated(message);
+  const includeContext = hasMeaningfulScanContext(safeContext);
 
   if (!includeContext) {
     return [
       'User message:',
       truncateText(message, MAX_MESSAGE_LENGTH),
       '',
-      'Reply in the same language and style as the user.',
+      'No scan context is available.',
+      'Reply in the same language and style as the user. If they ask about a product or result, ask them to scan a label or paste ingredients.',
     ].join('\n');
   }
 
   const verdict = safeContext.verdict || safeContext.lastScanResult?.status || safeContext.lastScanResult?.label || 'none';
-  const ingredients = truncateText(safeContext.ingredients || safeContext.lastScanResult?.text || '', 500) || 'none';
+  const productName = safeContext.productName || safeContext.lastScanResult?.productName || 'none';
+  const userPack = safeContext.userPack || safeContext.packType || safeContext.packStatus || 'unknown';
+  const ingredients = truncateText(safeContext.ingredients || safeContext.detectedText || safeContext.text || safeContext.lastScanResult?.text || '', 700) || 'none';
   const riskyIngredients = safeContext.detectedRiskyIngredients?.length
     ? safeContext.detectedRiskyIngredients.join(', ')
     : safeContext.lastScanResult?.detectedWords?.join(', ') || 'none';
+  const possibleRisks = safeContext.warnings?.length
+    ? safeContext.warnings.join(', ')
+    : safeContext.lastScanResult?.possibleWords?.join(', ') || 'none';
 
   return [
     'User message:',
     truncateText(message, MAX_MESSAGE_LENGTH),
     '',
     'Scan context:',
+    `- Product name: ${truncateText(productName, 120)}`,
     `- Verdict: ${truncateText(verdict, 120)}`,
     `- Ingredients: ${ingredients}`,
     `- Risky ingredients: ${truncateText(riskyIngredients, 300)}`,
+    `- Possible risks: ${truncateText(possibleRisks, 300)}`,
+    `- User pack: ${truncateText(userPack, 120)}`,
     '',
-    'Reply in the same language and style as the user. Explain briefly and carefully.',
+    'Use this context only if it helps. Reply in the same language and style as the user. Explain briefly and carefully. Never say the product is 100% safe.',
   ].join('\n');
 }
 
 function hasMeaningfulScanContext(context) {
   return Boolean(
     context.verdict ||
+      context.productName ||
       context.ingredients ||
+      context.detectedText ||
+      context.text ||
       context.lastScanResult ||
       context.detectedRiskyIngredients?.length ||
       context.warnings?.length,
