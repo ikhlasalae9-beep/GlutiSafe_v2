@@ -3,11 +3,16 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { getCurrentProfile } from '../lib/auth.js';
 import { isLoginVerified } from '../lib/loginSecurity.js';
 import { isSupabaseConfigured } from '../lib/supabaseClient.js';
+import { onUserScopedStateCleared } from '../lib/userScopedState.js';
 
 export default function ProtectedRoute({ adminOnly = false }) {
   const location = useLocation();
   const [state, setState] = useState({ loading: true, profile: null, error: '' });
   const redirectTarget = `${location.pathname}${location.search}`;
+
+  useEffect(() => onUserScopedStateCleared(() => {
+    setState({ loading: false, profile: null, error: '' });
+  }), []);
 
   useEffect(() => {
     let active = true;

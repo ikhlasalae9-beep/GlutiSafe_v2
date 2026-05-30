@@ -1,9 +1,11 @@
 ﻿import { AlertTriangle, CheckCircle2, Keyboard, ScanLine, ShieldCheck } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { explainAnalysis } from '../lib/api.js';
+import { getCurrentUser } from '../lib/auth.js';
 import { extractTextWithEasyOCR } from '../lib/ocrApi.js';
 import { assertCanAnalyze, formatTokenReset, getTokenSnapshot } from '../lib/packUsage.js';
 import { logCompletedScan } from '../lib/scanStats.js';
+import { onUserScopedStateCleared } from '../lib/userScopedState.js';
 import { analyzeIngredients } from '../server/glutenRules.js';
 import CameraCapture from './CameraCapture.jsx';
 import ExtractedTextEditor from './ExtractedTextEditor.jsx';
@@ -65,6 +67,8 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
       active = false;
     };
   }, []);
+
+  useEffect(() => onUserScopedStateCleared(() => resetAll()), []);
 
   function resetAll() {
     imageSelectionIdRef.current += 1;
@@ -506,12 +510,17 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
   );
 }
 
-function saveChatbotScanContext(result, text, meta = {}) {
+async function saveChatbotScanContext(result, text, meta = {}) {
   try {
+    const user = await getCurrentUser();
+    if (!user?.id) return;
+
     sessionStorage.setItem(
       CHATBOT_CONTEXT_KEY,
       JSON.stringify({
+        user_id: user.id,
         lastScanResult: result.analysis,
+        lastScanUserId: user.id,
         productName: meta.productName || 'Produit sans nom',
         ingredients: text,
         detectedText: text,

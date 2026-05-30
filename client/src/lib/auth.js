@@ -1,5 +1,6 @@
 import { requireSupabaseClient, supabase } from './supabaseClient.js';
 import { clearLoginVerification } from './loginSecurity.js';
+import { clearUserScopedState } from './userScopedState.js';
 import {
   describeCurrentPack,
   getEffectivePackStatus,
@@ -12,6 +13,7 @@ import {
 
 export async function registerUser({ name, email, password }) {
   const client = requireSupabaseClient();
+  clearUserScopedState({ reason: 'auth_start' });
   const normalizedEmail = normalizeEmail(email);
   const cleanName = String(name || '').trim();
 
@@ -47,6 +49,7 @@ export async function registerUser({ name, email, password }) {
 
 export async function loginUser({ email, password }) {
   const client = requireSupabaseClient();
+  clearUserScopedState({ reason: 'auth_start' });
   const normalizedEmail = normalizeEmail(email);
 
   if (!normalizedEmail || !password) {
@@ -80,6 +83,7 @@ export async function updatePassword(newPassword) {
 }
 
 export async function signOut() {
+  clearUserScopedState({ reason: 'sign_out' });
   clearLoginVerification();
   if (!supabase) return;
   await supabase.auth.signOut();
@@ -118,7 +122,11 @@ export function onAuthStateChange(callback) {
     return { unsubscribe() {} };
   }
 
-  const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
+  const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_OUT') {
+      clearUserScopedState({ reason: 'signed_out' });
+    }
+
     callback(session?.user ? toAppUser(session.user) : null);
   });
 

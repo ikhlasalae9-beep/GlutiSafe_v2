@@ -235,7 +235,7 @@ async function handleChatbot(req, res) {
     const reply = await createChatCompletion({
       messages: [
         { role: 'system', content: GLUTISAFE_SYSTEM_PROMPT },
-        { role: 'user', content: buildUserPrompt(cleanMessage, safeContext) },
+        { role: 'user', content: buildUserPrompt(cleanMessage, scopeChatbotContext(safeContext, aiAccess)) },
       ],
       temperature: 0.3,
       maxTokens: 500,
@@ -263,6 +263,21 @@ async function handleChatbot(req, res) {
       message: SERVICE_UNAVAILABLE_MESSAGE,
     });
   }
+}
+
+function scopeChatbotContext(context, aiAccess) {
+  const userId = aiAccess?.user?.id || '';
+  if (!userId) return {};
+  if (!context.user_id && hasMeaningfulScanContext(context)) return { user_id: userId };
+  if (context.user_id && context.user_id !== userId) return { user_id: userId };
+  if (context.lastScanResult?.user_id && context.lastScanResult.user_id !== userId) return { user_id: userId };
+
+  return {
+    ...context,
+    user_id: userId,
+    userPack: context.userPack || aiAccess?.effective?.type || 'none',
+    packStatus: context.packStatus || aiAccess?.effective?.status || 'free',
+  };
 }
 
 async function getOptionalRequesterPackAccess(req) {

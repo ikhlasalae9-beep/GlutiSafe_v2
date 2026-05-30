@@ -9,6 +9,7 @@ import { getMyPaymentRequests } from '../lib/payments.js';
 import { formatTokenReset, getTokenSnapshot } from '../lib/packUsage.js';
 import { PACKS } from '../lib/packs.js';
 import { getMyReceipts, openOwnReceiptPdf } from '../lib/receipts.js';
+import { onUserScopedStateCleared } from '../lib/userScopedState.js';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
@@ -18,6 +19,15 @@ export default function ProfilePage() {
   const [aiUsage, setAiUsage] = useState(null);
   const [pendingRequest, setPendingRequest] = useState(null);
   const [receipts, setReceipts] = useState([]);
+
+  useEffect(() => onUserScopedStateCleared(() => {
+    setUser(null);
+    setHistory([]);
+    setTokenInfo(null);
+    setAiUsage(null);
+    setPendingRequest(null);
+    setReceipts([]);
+  }), []);
 
   useEffect(() => {
     let active = true;

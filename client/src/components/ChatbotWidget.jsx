@@ -1,10 +1,10 @@
 import { Bot, CheckCircle2, Copy, Lock, MessageCircle, Plus, Send, Sparkles, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { getCurrentUserChatbotContext } from '../lib/chatbotContext.js';
 import { sendChatbotMessage } from '../lib/api.js';
+import { onUserScopedStateCleared } from '../lib/userScopedState.js';
 
-const CHATBOT_CONTEXT_KEY = 'glutisafe_last_scan_context';
-const CHATBOT_MESSAGES_KEY = 'glutisafe_chatbot_messages';
 const FREE_AI_LIMIT_CODES = new Set(['FREE_AI_LIMIT_REACHED', 'AI_LIMIT_REACHED']);
 const GENERIC_ERROR = "L'assistant est momentanément indisponible. Réessayez dans un instant.";
 
@@ -19,7 +19,6 @@ const SUGGESTIONS = [
   'Explique mon résultat',
   'Quels ingrédients surveiller ?',
   'Comment fonctionne GlutiSafe ?',
-  'Voir les packs',
 ];
 
 export default function ChatbotWidget() {
@@ -27,7 +26,7 @@ export default function ChatbotWidget() {
   const navigate = useNavigate();
   const messagesEndRef = useRef(null);
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState(() => loadMessages());
+  const [messages, setMessages] = useState([WELCOME_MESSAGE]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -37,8 +36,15 @@ export default function ChatbotWidget() {
   const canSend = useMemo(() => input.trim().length > 0 && !loading && !limitReached, [input, loading, limitReached]);
 
   useEffect(() => {
-    sessionStorage.setItem(CHATBOT_MESSAGES_KEY, JSON.stringify(messages));
-  }, [messages]);
+    return onUserScopedStateCleared(() => {
+      setOpen(false);
+      setMessages([WELCOME_MESSAGE]);
+      setInput('');
+      setLoading(false);
+      setError('');
+      setLimitReached(false);
+    });
+  }, []);
 
   useEffect(() => {
     if (open) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -62,10 +68,8 @@ export default function ChatbotWidget() {
     setMessages((current) => [...current, { id: crypto.randomUUID(), role: 'user', content: cleanMessage }]);
 
     try {
-      const data = await sendChatbotMessage({
-        message: cleanMessage,
-        context: getStoredScanContext() || {},
-      });
+      const context = await getCurrentUserChatbotContext();
+      const data = await sendChatbotMessage({ message: cleanMessage, context });
       setMessages((current) => [...current, { id: crypto.randomUUID(), role: 'assistant', content: data.reply }]);
     } catch (sendError) {
       if (FREE_AI_LIMIT_CODES.has(sendError.code) || sendError.status === 429) {
@@ -100,9 +104,9 @@ export default function ChatbotWidget() {
   }
 
   return (
-    <div className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-4 z-[9999] sm:bottom-6 sm:right-6">
+    <>
       {open ? (
-        <section className="fixed inset-x-0 bottom-0 flex h-[85svh] max-h-[85svh] w-full flex-col overflow-hidden rounded-t-[1.5rem] border border-[#dfe8df] bg-[#f7f8f6] shadow-[0_-18px_70px_rgba(29,37,43,0.2)] transition sm:absolute sm:bottom-20 sm:right-0 sm:h-[620px] sm:max-h-[min(78vh,620px)] sm:w-[420px] sm:rounded-[1.5rem] sm:shadow-[0_24px_70px_rgba(29,37,43,0.18)]">
+        <section className="fixed inset-x-0 bottom-0 z-[10000] box-border flex h-[85dvh] max-h-[85dvh] w-full flex-col overflow-hidden rounded-t-[24px] border border-[#dfe8df] bg-[#f7f8f6] shadow-[0_-18px_70px_rgba(29,37,43,0.2)] sm:inset-auto sm:bottom-24 sm:right-6 sm:h-[620px] sm:max-h-[min(650px,calc(100vh-120px))] sm:w-[min(420px,calc(100vw-32px))] sm:rounded-[24px] sm:shadow-[0_24px_70px_rgba(29,37,43,0.18)]">
           <header className="sticky top-0 z-10 border-b border-[#dfe8df] bg-white/95 px-4 py-4 backdrop-blur">
             <div className="flex items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">
@@ -114,7 +118,7 @@ export default function ChatbotWidget() {
                   <p className="truncate text-xs font-semibold text-slate-500">Ingrédients, gluten et résultats</p>
                   <p className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-[#008f45]">
                     <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-                    Disponible pour vous aider
+                    En ligne
                   </p>
                 </div>
               </div>
@@ -129,7 +133,7 @@ export default function ChatbotWidget() {
             </div>
           </header>
 
-          <div className="flex-1 overflow-y-auto px-4 py-4">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
             <div className="mb-4 flex flex-wrap gap-2">
               {SUGGESTIONS.map((suggestion) => (
                 <button
@@ -142,6 +146,14 @@ export default function ChatbotWidget() {
                   {suggestion}
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={() => sendMessage('Voir les packs')}
+                disabled={loading}
+                className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-black text-[#008f45] shadow-sm transition hover:bg-white disabled:opacity-60"
+              >
+                Voir les packs
+              </button>
             </div>
 
             <div className="space-y-4">
@@ -155,7 +167,7 @@ export default function ChatbotWidget() {
             </div>
           </div>
 
-          <form className="border-t border-[#dfe8df] bg-white p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]" onSubmit={handleSubmit}>
+          <form className="shrink-0 border-t border-[#dfe8df] bg-white p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]" onSubmit={handleSubmit}>
             <div className="flex items-end gap-2 rounded-[1.25rem] border border-[#dfe8df] bg-[#f7f8f6] p-2 focus-within:border-[#008f45] focus-within:ring-4 focus-within:ring-[#a8cfa5]/35">
               <textarea
                 className="max-h-28 min-h-11 flex-1 resize-none bg-transparent px-2 py-2 text-sm leading-6 text-[#1d252b] outline-none placeholder:text-slate-400 disabled:cursor-not-allowed disabled:text-slate-400"
@@ -175,15 +187,17 @@ export default function ChatbotWidget() {
         </section>
       ) : null}
 
-      <button
-        className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#008f45] text-white shadow-[0_18px_42px_rgba(0,143,69,0.28)] transition hover:-translate-y-1 hover:bg-[#00753b] focus:outline-none focus:ring-4 focus:ring-[#a8cfa5]/50"
-        onClick={() => setOpen((value) => !value)}
-        aria-label="Ouvrir l'assistant GlutiSafe"
-        type="button"
-      >
-        <MessageCircle className="h-7 w-7" aria-hidden="true" />
-      </button>
-    </div>
+      {!open ? (
+        <button
+          className="fixed bottom-[calc(16px+env(safe-area-inset-bottom))] right-4 z-[9999] flex h-14 w-14 items-center justify-center rounded-2xl bg-[#008f45] text-white shadow-[0_18px_42px_rgba(0,143,69,0.28)] transition hover:-translate-y-1 hover:bg-[#00753b] focus:outline-none focus:ring-4 focus:ring-[#a8cfa5]/50 sm:bottom-[calc(24px+env(safe-area-inset-bottom))] sm:right-6"
+          onClick={() => setOpen(true)}
+          aria-label="Ouvrir l'assistant GlutiSafe"
+          type="button"
+        >
+          <MessageCircle className="h-7 w-7" aria-hidden="true" />
+        </button>
+      ) : null}
+    </>
   );
 }
 
@@ -193,7 +207,7 @@ function ChatBubble({ message }) {
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div
-        className={`group max-w-[86%] whitespace-pre-wrap rounded-2xl p-3 text-sm leading-6 shadow-sm ${
+        className={`group max-w-[86%] whitespace-pre-wrap break-words rounded-2xl p-3 text-sm leading-6 shadow-sm ${
           isUser ? 'rounded-br-md bg-[#008f45] text-white' : 'rounded-bl-md bg-white text-slate-700 ring-1 ring-[#dfe8df]'
         }`}
       >
@@ -239,7 +253,7 @@ function AiLimitUpgradeCard() {
           <Lock className="h-5 w-5" aria-hidden="true" />
         </span>
         <div className="min-w-0">
-          <p className="font-black text-[#1d252b]">Limite gratuite atteinte</p>
+          <p className="font-black text-[#1d252b]">Limite atteinte</p>
           <p className="mt-1 font-semibold text-slate-600">
             Vous avez atteint la limite gratuite de 5 messages avec l'assistant intelligent. Passez à un pack premium pour continuer.
           </p>
@@ -250,23 +264,6 @@ function AiLimitUpgradeCard() {
       </div>
     </div>
   );
-}
-
-function loadMessages() {
-  try {
-    const stored = JSON.parse(sessionStorage.getItem(CHATBOT_MESSAGES_KEY) || 'null');
-    return Array.isArray(stored) && stored.length ? stored : [WELCOME_MESSAGE];
-  } catch {
-    return [WELCOME_MESSAGE];
-  }
-}
-
-function getStoredScanContext() {
-  try {
-    return JSON.parse(sessionStorage.getItem(CHATBOT_CONTEXT_KEY) || 'null');
-  } catch {
-    return null;
-  }
 }
 
 function isMobileViewport() {

@@ -1,7 +1,10 @@
+import { useEffect, useRef } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import ChatbotWidget from './components/ChatbotWidget.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import SidebarLayout from './components/SidebarLayout.jsx';
+import { supabase } from './lib/supabaseClient.js';
+import { clearUserScopedState } from './lib/userScopedState.js';
 import AdminLoginPage from './pages/AdminLoginPage.jsx';
 import AdminPage from './pages/AdminPage.jsx';
 import AnalysisPage from './pages/AnalysisPage.jsx';
@@ -16,6 +19,33 @@ import ResetPasswordPage from './pages/ResetPasswordPage.jsx';
 import VerifyLoginPage from './pages/VerifyLoginPage.jsx';
 
 export default function App() {
+  const currentUserIdRef = useRef('');
+
+  useEffect(() => {
+    if (!supabase) return undefined;
+
+    supabase.auth.getUser().then(({ data }) => {
+      currentUserIdRef.current = data.user?.id || '';
+    });
+
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      const nextUserId = session?.user?.id || '';
+
+      if (event === 'SIGNED_OUT') {
+        currentUserIdRef.current = '';
+        clearUserScopedState({ reason: 'signed_out' });
+        return;
+      }
+
+      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && nextUserId && currentUserIdRef.current !== nextUserId) {
+        currentUserIdRef.current = nextUserId;
+        clearUserScopedState({ reason: 'user_changed', nextUserId, preserveLoginVerification: true });
+      }
+    });
+
+    return () => data.subscription.unsubscribe();
+  }, []);
+
   return (
     <>
       <Routes>

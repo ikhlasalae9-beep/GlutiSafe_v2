@@ -2,6 +2,7 @@ import { History, Home, LogOut, Menu, ScanLine, UserRound, WalletCards, X } from
 import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { getCurrentUser, signOut } from '../lib/auth.js';
+import { onUserScopedStateCleared } from '../lib/userScopedState.js';
 
 const navItems = [
   { label: 'Accueil', path: '/', icon: Home },
@@ -27,7 +28,9 @@ export default function SidebarLayout() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [location.key]);
+
+  useEffect(() => onUserScopedStateCleared(() => setUser(null)), []);
 
   const handleSignOut = async () => {
     await signOut();

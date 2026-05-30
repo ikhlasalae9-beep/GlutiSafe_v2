@@ -5,6 +5,7 @@ import { getCurrentProfile } from '../lib/auth.js';
 import { createManualPackRequest } from '../lib/payments.js';
 import { getTokenSnapshot, formatTokenReset } from '../lib/packUsage.js';
 import { PACKS, PAYMENT_METHODS, formatPackPrice, formatPackTokens, getCurrentPack, getPackSettings, getPaymentSettings } from '../lib/packs.js';
+import { onUserScopedStateCleared } from '../lib/userScopedState.js';
 
 export default function PacksPage() {
   const [profile, setProfile] = useState(null);
@@ -18,6 +19,15 @@ export default function PacksPage() {
   const [requesting, setRequesting] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+
+  useEffect(() => onUserScopedStateCleared(() => {
+    setProfile(null);
+    setTokenInfo(null);
+    setSelectedPack(null);
+    setUserNote('');
+    setMessage('');
+    setError('');
+  }), []);
 
   useEffect(() => {
     let active = true;

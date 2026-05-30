@@ -68,7 +68,7 @@ function buildUserPrompt(message, context = {}) {
     context && typeof context === 'object' && !Array.isArray(context)
       ? context
       : {};
-  const includeContext = hasMeaningfulScanContext(safeContext);
+  const includeContext = Boolean(safeContext.user_id) && hasMeaningfulScanContext(safeContext);
 
   if (!includeContext) {
     return [

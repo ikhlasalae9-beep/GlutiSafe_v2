@@ -5,12 +5,19 @@ import { getStoredUser } from '../lib/auth.js';
 import { deleteAnalysis, getHistory, isSafeHistoryItem } from '../lib/history.js';
 import { getSignedAnalysisImageUrl } from '../lib/storage.js';
 import { getStatusStyle } from '../lib/status.js';
+import { onUserScopedStateCleared } from '../lib/userScopedState.js';
 
 export default function HistoryPage() {
   const navigate = useNavigate();
   const [history, setHistory] = useState([]);
   const [imageUrls, setImageUrls] = useState({});
   const [error, setError] = useState('');
+
+  useEffect(() => onUserScopedStateCleared(() => {
+    setHistory([]);
+    setImageUrls({});
+    setError('');
+  }), []);
 
   useEffect(() => {
     let active = true;
