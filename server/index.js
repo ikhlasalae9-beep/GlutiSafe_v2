@@ -12,12 +12,13 @@ console.log('[env] GitHub Models config', {
   model: process.env.GITHUB_MODELS_MODEL,
 });
 
-const [{ default: cors }, { default: express }, { default: analyzeRouter }, { default: chatbotRouter }, { default: adminRouter }] = await Promise.all([
+const [{ default: cors }, { default: express }, { default: analyzeRouter }, { default: chatbotRouter }, { default: adminRouter }, { default: loginSecurityRouter }] = await Promise.all([
   import('cors'),
   import('express'),
   import('./routes/analyze.js'),
   import('./routes/chatbot.js'),
   import('./routes/admin.js'),
+  import('./routes/loginSecurity.js'),
 ]);
 
 const app = express();
@@ -48,6 +49,7 @@ app.get('/api/health', (_req, res) => {
 app.use('/api', analyzeRouter);
 app.use('/api', chatbotRouter);
 app.use('/api', adminRouter);
+app.use('/api', loginSecurityRouter);
 
 app.listen(port, () => {
   console.log(`GlutiSafe API running on http://localhost:${port}`);

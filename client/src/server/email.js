@@ -81,6 +81,27 @@ export async function sendTestEmail({ to }) {
   }
 }
 
+export async function sendLoginVerificationEmail({ to, code }) {
+  validateSmtpEnv();
+
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: Number(process.env.SMTP_PORT || 587),
+    secure: false,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+
+  return transporter.sendMail({
+    from: process.env.FROM_EMAIL,
+    to,
+    subject: 'Code de vérification GlutiSafe',
+    html: buildLoginVerificationHtml({ code }),
+  });
+}
+
 function validateSmtpEnv() {
   if (!process.env.SMTP_USER) throw new Error('SMTP_USER missing');
   if (!process.env.SMTP_PASS) throw new Error('SMTP_PASS missing');
@@ -105,6 +126,25 @@ function buildPackConfirmationHtml({ customerName, packLabel, startDate, endDate
             <tr><td style="padding:10px;border-bottom:1px solid #dfe8df;font-weight:700">Numéro de reçu</td><td style="padding:10px;border-bottom:1px solid #dfe8df">${escapeHtml(receiptNumber)}</td></tr>
           </table>
           <p><a href="${profileUrl}" style="display:inline-block;background:#008f45;color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:12px;font-weight:700">Accéder à mon profil</a></p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function buildLoginVerificationHtml({ code }) {
+  return `
+    <div style="font-family:Arial,sans-serif;background:#f7f8f6;padding:28px;color:#1d252b">
+      <div style="max-width:620px;margin:0 auto;background:#ffffff;border:1px solid #dfe8df;border-radius:18px;overflow:hidden">
+        <div style="background:#008f45;color:#ffffff;padding:24px 28px">
+          <h1 style="margin:0;font-size:24px">Code de vérification</h1>
+          <p style="margin:6px 0 0;font-weight:700">GlutiSafe</p>
+        </div>
+        <div style="padding:28px">
+          <p>Voici votre code de connexion GlutiSafe.</p>
+          <p style="font-size:34px;letter-spacing:8px;font-weight:900;color:#008f45;margin:24px 0">${escapeHtml(code)}</p>
+          <p>Ce code expire dans 10 minutes.</p>
+          <p style="color:#5f6b63">Si vous n'êtes pas à l'origine de cette connexion, changez votre mot de passe.</p>
         </div>
       </div>
     </div>

@@ -19,6 +19,7 @@ import {
 import { GLUTISAFE_SYSTEM_PROMPT, createChatCompletion } from '../src/server/aiService.js';
 import { generateExplanation } from '../src/server/explain.js';
 import { analyzeIngredients } from '../src/server/glutenRules.js';
+import { checkTrustedLoginDevice, sendLoginVerificationCode, verifyLoginCode } from '../src/server/loginSecurity.js';
 import { readJsonBody } from '../src/server/request.js';
 
 const DEFAULT_OCR_SPACE_API_URL = 'https://api.ocr.space/parse/image';
@@ -64,6 +65,28 @@ export default async function handler(req, res) {
     if (req.method === 'POST' && pathname === '/api/test-email') {
       const body = await readJsonBody(req);
       return sendAdminResult(res, testEmail({ requesterToken: readBearerToken(req), to: body.to }));
+    }
+
+    if (req.method === 'POST' && pathname === '/api/login-security/check-trusted') {
+      const body = await readJsonBody(req);
+      return sendLoginSecurityResult(res, checkTrustedLoginDevice({ requesterToken: readBearerToken(req), deviceToken: body.deviceToken }));
+    }
+
+    if (req.method === 'POST' && pathname === '/api/login-security/send-code') {
+      return sendLoginSecurityResult(res, sendLoginVerificationCode({ requesterToken: readBearerToken(req) }));
+    }
+
+    if (req.method === 'POST' && pathname === '/api/login-security/verify') {
+      const body = await readJsonBody(req);
+      return sendLoginSecurityResult(
+        res,
+        verifyLoginCode({
+          requesterToken: readBearerToken(req),
+          code: body.code,
+          rememberDevice: Boolean(body.rememberDevice),
+          deviceLabel: body.deviceLabel,
+        }),
+      );
     }
 
     if (req.method === 'POST' && pathname === '/api/admin/delete-user') {
@@ -318,6 +341,24 @@ async function sendApiResult(res, promise) {
       message: error.message || 'Action impossible.',
     });
   }
+}
+
+async function sendLoginSecurityResult(res, promise) {
+  try {
+    return res.status(200).json(await promise);
+  } catch (error) {
+    console.error('[login-security] request failed', { message: error.message, reason: error.reason });
+    return res.status(error.status || 503).json({
+      error: error.reason || 'LOGIN_SECURITY_UNAVAILABLE',
+      message: safeLoginSecurityMessage(error),
+    });
+  }
+}
+
+function safeLoginSecurityMessage(error) {
+  if (['wrong_code', 'expired', 'too_many_attempts'].includes(error.reason)) return error.message;
+  if (error.status === 503 && String(error.message || '').includes("Impossible d'envoyer")) return error.message;
+  return 'Verification de connexion indisponible.';
 }
 
 async function extractTextWithOcrSpace(base64Image) {

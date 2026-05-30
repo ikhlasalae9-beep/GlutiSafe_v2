@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import Button from '../components/Button.jsx';
 import { loginUser, registerUser } from '../lib/auth.js';
+import { checkTrustedDeviceAfterLogin, markLoginVerified, sendLoginCode } from '../lib/loginSecurity.js';
 
 export default function AuthPage({ mode = 'register' }) {
   const isRegister = mode === 'register';
@@ -35,11 +36,22 @@ export default function AuthPage({ mode = 'register' }) {
       if (isRegister) {
         await registerUser({ name, email, password });
         setSuccess('Compte créé avec succès. Redirection vers le scanner...');
-      } else {
-        await loginUser({ email, password });
-        setSuccess('Connexion réussie. Redirection vers le scanner...');
+        window.setTimeout(() => navigate(redirectTo, { replace: true }), 350);
+        return;
       }
-      window.setTimeout(() => navigate(redirectTo, { replace: true }), 350);
+
+      await loginUser({ email, password });
+      setSuccess('Envoi du code de vérification...');
+      const trusted = await checkTrustedDeviceAfterLogin();
+      if (trusted.trusted) {
+        markLoginVerified(true);
+        navigate(redirectTo, { replace: true });
+        return;
+      }
+
+      markLoginVerified(false);
+      await sendLoginCode();
+      navigate(`/verify-login?redirect=${encodeURIComponent(redirectTo)}`, { replace: true });
     } catch (submitError) {
       setError(submitError.message || 'Impossible de finaliser cette action.');
     } finally {
@@ -96,20 +108,13 @@ export default function AuthPage({ mode = 'register' }) {
             {isRegister ? (
               <label className="block">
                 <span className="text-sm font-bold text-slate-700">Confirmer le mot de passe</span>
-                <Field
-                  icon={Lock}
-                  placeholder="Confirmez votre mot de passe"
-                  required
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
-                />
+                <Field icon={Lock} placeholder="Confirmez votre mot de passe" required type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} />
               </label>
             ) : null}
             {error ? <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">{error}</p> : null}
             {success ? <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">{success}</p> : null}
             <Button className="w-full" type="submit" disabled={loading}>
-              {loading ? 'Veuillez patienter...' : isRegister ? 'Créer mon compte' : 'Se connecter'}
+              {loading ? (isRegister ? 'Veuillez patienter...' : 'Envoi du code...') : isRegister ? 'Créer mon compte' : 'Se connecter'}
             </Button>
           </form>
 

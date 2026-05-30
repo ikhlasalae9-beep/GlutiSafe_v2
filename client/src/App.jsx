@@ -13,6 +13,7 @@ import HomePage from './pages/HomePage.jsx';
 import PacksPage from './pages/PacksPage.jsx';
 import ProfilePage from './pages/ProfilePage.jsx';
 import ResetPasswordPage from './pages/ResetPasswordPage.jsx';
+import VerifyLoginPage from './pages/VerifyLoginPage.jsx';
 
 export default function App() {
   return (
@@ -39,6 +40,7 @@ export default function App() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/verify-login" element={<VerifyLoginPage />} />
         <Route path="/admin-secure" element={<AdminLoginPage />} />
         <Route path="/admin-login" element={<Navigate to="/" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />

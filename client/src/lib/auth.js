@@ -1,4 +1,5 @@
 import { requireSupabaseClient, supabase } from './supabaseClient.js';
+import { clearLoginVerification } from './loginSecurity.js';
 import {
   describeCurrentPack,
   getEffectivePackStatus,
@@ -79,6 +80,7 @@ export async function updatePassword(newPassword) {
 }
 
 export async function signOut() {
+  clearLoginVerification();
   if (!supabase) return;
   await supabase.auth.signOut();
 }

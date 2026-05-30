@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { getCurrentProfile } from '../lib/auth.js';
+import { isLoginVerified } from '../lib/loginSecurity.js';
 import { isSupabaseConfigured } from '../lib/supabaseClient.js';
 
 export default function ProtectedRoute({ adminOnly = false }) {
@@ -48,6 +49,10 @@ export default function ProtectedRoute({ adminOnly = false }) {
 
   if (!state.profile) {
     return <Navigate to={`/login?redirect=${encodeURIComponent(redirectTarget)}`} replace state={{ from: location }} />;
+  }
+
+  if (!isLoginVerified()) {
+    return <Navigate to={`/verify-login?redirect=${encodeURIComponent(redirectTarget)}`} replace state={{ from: location }} />;
   }
 
   if (adminOnly && state.profile.role !== 'admin') {
