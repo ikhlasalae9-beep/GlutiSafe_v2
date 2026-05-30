@@ -114,6 +114,14 @@ a {
     @apply w-full rounded-2xl border border-[#dfe8df] bg-white px-4 py-3 text-sm text-[#1d252b] outline-none transition placeholder:text-slate-400 focus:border-[#008f45] focus:ring-4 focus:ring-[#a8cfa5]/35;
   }
 
+  .admin-card {
+    @apply rounded-[1.25rem] border border-[#dfe8df] bg-white shadow-[0_18px_54px_rgba(29,37,43,0.06)];
+  }
+
+  .admin-card-hover {
+    @apply transition duration-200 hover:-translate-y-1 hover:border-[#b9d8bb] hover:shadow-[0_24px_64px_rgba(29,37,43,0.1)];
+  }
+
   .status-pill {
     @apply inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold;
   }
@@ -969,6 +977,25 @@ a {
   50% {
     transform: translateY(6.2rem);
   }
+}
+
+@keyframes adminFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.admin-page-enter {
+  animation: adminFadeIn 320ms ease both;
+}
+
+.admin-stagger {
+  animation: adminFadeIn 360ms ease both;
 }
 
 @media (min-width: 640px) {

@@ -63,7 +63,7 @@ export default function AdminSettingsPage({ dashboard, onSaved }) {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <AdminStatCard icon={ShieldCheck} label="Base de données" value={settings.supabaseConfigured ? 'Connectée' : 'Non configurée'} tone={settings.supabaseConfigured ? 'green' : 'red'} />
         <AdminStatCard icon={ShieldCheck} label="Statut plateforme" value={settings.platformStatus} tone="green" />
@@ -74,11 +74,12 @@ export default function AdminSettingsPage({ dashboard, onSaved }) {
       {error ? <p className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">{error}</p> : null}
       {message ? <p className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-800">{message}</p> : null}
 
-      <section className="rounded-[1.25rem] border border-[#dfe8df] bg-white p-5 shadow-sm">
+      <section className="admin-card p-6">
         <div className="flex items-center gap-3">
           <WalletCards className="h-5 w-5 text-[#008f45]" aria-hidden="true" />
           <h2 className="text-lg font-extrabold text-[#1d252b]">Parametres de paiement</h2>
         </div>
+        <p className="mt-1 text-sm font-semibold text-slate-500">Coordonnees affichees aux utilisateurs pour les paiements manuels.</p>
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           <Field label="Titulaire RIB" value={paymentForm.rib_holder} onChange={(value) => setPaymentForm({ ...paymentForm, rib_holder: value })} />
           <Field label="Banque" value={paymentForm.bank_name} onChange={(value) => setPaymentForm({ ...paymentForm, bank_name: value })} />
@@ -99,17 +100,14 @@ export default function AdminSettingsPage({ dashboard, onSaved }) {
           <Save className="h-4 w-4" aria-hidden="true" />
           Enregistrer
         </button>
-        <button type="button" disabled={saving === 'email-test'} onClick={testEmailSending} className="ml-3 mt-5 inline-flex items-center gap-2 rounded-2xl border border-[#dfe8df] bg-white px-5 py-3 text-sm font-black text-slate-700 hover:border-[#008f45] hover:text-[#008f45] disabled:opacity-60">
-          <Mail className="h-4 w-4" aria-hidden="true" />
-          Tester l'e-mail
-        </button>
       </section>
 
-      <section className="rounded-[1.25rem] border border-[#dfe8df] bg-white p-5 shadow-sm">
+      <section className="admin-card p-6">
         <div className="flex items-center gap-3">
           <SlidersHorizontal className="h-5 w-5 text-[#008f45]" aria-hidden="true" />
           <h2 className="text-lg font-extrabold text-[#1d252b]">Parametres des packs</h2>
         </div>
+        <p className="mt-1 text-sm font-semibold text-slate-500">Chaque pack est separe pour eviter les formulaires trop denses.</p>
 
         <div className="mt-5 grid gap-5 xl:grid-cols-3">
           <PackBox title="Pack Gratuit" features={PACKS.find((pack) => pack.id === 'free')?.features}>
@@ -169,6 +167,18 @@ export default function AdminSettingsPage({ dashboard, onSaved }) {
           Enregistrer
         </button>
       </section>
+
+      <section className="admin-card p-6">
+        <div className="flex items-center gap-3">
+          <Mail className="h-5 w-5 text-[#008f45]" aria-hidden="true" />
+          <h2 className="text-lg font-extrabold text-[#1d252b]">E-mail</h2>
+        </div>
+        <p className="mt-1 text-sm font-semibold text-slate-500">Verification rapide de l'envoi des e-mails de recus.</p>
+        <button type="button" disabled={saving === 'email-test'} onClick={testEmailSending} className="mt-5 inline-flex items-center gap-2 rounded-2xl border border-[#dfe8df] bg-white px-5 py-3 text-sm font-black text-slate-700 hover:border-[#008f45] hover:text-[#008f45] disabled:opacity-60">
+          <Mail className="h-4 w-4" aria-hidden="true" />
+          Tester l'e-mail
+        </button>
+      </section>
     </div>
   );
 }
@@ -193,7 +203,7 @@ function NumberField({ label, value = 0, onChange }) {
 
 function PackBox({ title, features = [], children }) {
   return (
-    <section className="rounded-[1.25rem] border border-[#dfe8df] bg-[#f7f8f6] p-4">
+    <section className="rounded-[1.25rem] border border-[#dfe8df] bg-[#f7f8f6] p-5">
       <h3 className="text-sm font-black uppercase tracking-[0.12em] text-[#008f45]">{title}</h3>
       <div className="mt-4 grid gap-4">{children}</div>
       {features.length ? (

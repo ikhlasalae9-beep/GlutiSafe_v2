@@ -1,12 +1,14 @@
-export default function AdminStatCard({ icon: Icon, label, value, hint, tone = 'default' }) {
-  const toneClass = tone === 'green' ? 'bg-[#e8f4e8] text-[#008f45]' : tone === 'red' ? 'bg-red-50 text-red-700' : 'bg-white text-[#008f45]';
+export default function AdminStatCard({ icon: Icon, label, value, hint, tone = 'default', delay = 0 }) {
+  const toneClass = tone === 'green' ? 'bg-[#e8f4e8] text-[#008f45]' : tone === 'red' ? 'bg-red-50 text-red-700' : 'bg-[#f0f7f1] text-[#008f45]';
 
   return (
-    <article className="rounded-[1.25rem] border border-[#dfe8df] bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-sm font-bold text-slate-500">{label}</p>
-          <p className="mt-3 break-words text-3xl font-extrabold text-[#1d252b]">{value}</p>
+    <article className="admin-card admin-card-hover admin-stagger min-h-[130px] p-6" style={{ animationDelay: `${delay}ms` }}>
+      <div className="flex h-full items-start justify-between gap-5">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold leading-5 text-slate-500">{label}</p>
+          <p className="mt-4 overflow-hidden text-ellipsis whitespace-nowrap text-3xl font-extrabold leading-tight text-[#1d252b]" title={String(value ?? '-')}>
+            {value ?? '-'}
+          </p>
           {hint ? <p className="mt-2 text-xs font-semibold text-slate-500">{hint}</p> : null}
         </div>
         {Icon ? (

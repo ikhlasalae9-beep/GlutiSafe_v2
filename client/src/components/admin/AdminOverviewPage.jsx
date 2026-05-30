@@ -9,111 +9,163 @@ export default function AdminOverviewPage({ dashboard }) {
   const stats = dashboard.scanStats;
   const recentRequests = dashboard.latestPendingRequests || [];
   const packDistribution = dashboard.packDistribution || [];
+  const recentAnalyses = (dashboard.latestAnalyses || []).slice(0, 5);
 
   return (
-    <div className="space-y-5">
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-6">
-        <AdminStatCard icon={UserRound} label="Total utilisateurs" value={dashboard.usersCount} />
-        <AdminStatCard icon={UserRound} label="Utilisateurs Free" value={dashboard.freeUsersCount} />
-        <AdminStatCard icon={Clock3} label="Demandes en attente" value={dashboard.pendingPaymentRequestsCount} />
-        <AdminStatCard icon={WalletCards} label="Packs mensuels actifs" value={dashboard.activeMonthlyCount} />
-        <AdminStatCard icon={Crown} label="Packs annuels actifs" value={dashboard.activeYearlyCount} />
-        <AdminStatCard icon={ScanLine} label="Total scans" value={dashboard.scansCount} />
-        <AdminStatCard icon={AlertTriangle} label="Scans avec gluten" value={stats.glutenCount} tone="red" />
-        <AdminStatCard icon={CheckCircle2} label="Scans sans gluten detecte" value={stats.noGlutenCount} tone="green" />
-        <AdminStatCard icon={ShieldCheck} label="Risques possibles" value={stats.possibleRiskCount} />
-        <AdminStatCard icon={ShieldCheck} label="Statut plateforme" value={dashboard.platformStatus} tone="green" />
-        <AdminStatCard icon={Crown} label="Admin principal" value={dashboard.mainAdmin} />
-      </section>
+    <div className="space-y-8">
+      <KpiSection
+        title="Vue generale"
+        subtitle="Les indicateurs essentiels pour piloter la plateforme."
+        cards={[
+          { icon: UserRound, label: 'Total utilisateurs', value: dashboard.usersCount },
+          { icon: Clock3, label: 'Demandes en attente', value: dashboard.pendingPaymentRequestsCount },
+          { icon: ScanLine, label: 'Total analyses', value: dashboard.scansCount },
+          { icon: ShieldCheck, label: 'Statut plateforme', value: dashboard.platformStatus, tone: 'green' },
+        ]}
+      />
 
-      <section className="grid gap-5 xl:grid-cols-[1fr_0.9fr]">
-        <Panel title="Demandes recentes">
-          <div className="grid gap-3">
-            {recentRequests.length === 0 ? <Empty>Aucune demande en attente.</Empty> : null}
-            {recentRequests.map((request) => (
-              <article key={request.id} className="rounded-2xl border border-[#dfe8df] bg-[#f7f8f6] p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="font-black text-[#1d252b]">{request.userName}</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-500">{request.userEmail || '-'}</p>
+      <KpiSection
+        title="Packs"
+        subtitle="Repartition rapide des abonnements actifs."
+        columns="xl:grid-cols-3"
+        cards={[
+          { icon: UserRound, label: 'Utilisateurs Free', value: dashboard.freeUsersCount },
+          { icon: WalletCards, label: 'Packs mensuels actifs', value: dashboard.activeMonthlyCount },
+          { icon: Crown, label: 'Packs annuels actifs', value: dashboard.activeYearlyCount },
+        ]}
+      />
+
+      <KpiSection
+        title="Securite des scans"
+        subtitle="Lecture synthetique des resultats detectes."
+        columns="xl:grid-cols-3"
+        cards={[
+          { icon: AlertTriangle, label: 'Scans avec gluten', value: stats.glutenCount, tone: 'red' },
+          { icon: CheckCircle2, label: 'Scans sans gluten detecte', value: stats.noGlutenCount, tone: 'green' },
+          { icon: ShieldCheck, label: 'Risques possibles', value: stats.possibleRiskCount },
+        ]}
+      />
+
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(22rem,0.92fr)]">
+        <div className="grid gap-6">
+          <Panel title="Demandes recentes" subtitle="Paiements manuels qui attendent une validation.">
+            <div className="grid gap-3">
+              {recentRequests.length === 0 ? <Empty>Aucune demande en attente.</Empty> : null}
+              {recentRequests.map((request) => (
+                <article key={request.id} className="rounded-2xl border border-[#dfe8df] bg-[#f7f8f6] p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="truncate font-black text-[#1d252b]">{request.userName}</p>
+                      <p className="mt-1 truncate text-sm font-semibold text-slate-500">{request.userEmail || '-'}</p>
+                    </div>
+                    <Badge>{formatDateTime(request.createdAt)}</Badge>
                   </div>
-                  <Badge>{formatDateTime(request.createdAt)}</Badge>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Badge>{request.packLabel}</Badge>
-                  <Badge>{request.paymentMethod === 'cashplus' ? 'CashPlus' : 'RIB'}</Badge>
-                  <Badge>{request.amount ?? '-'} MAD</Badge>
-                </div>
-              </article>
-            ))}
-          </div>
-        </Panel>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Badge>{request.packLabel}</Badge>
+                    <Badge>{request.paymentMethod === 'cashplus' ? 'CashPlus' : 'RIB'}</Badge>
+                    <Badge>{request.amount ?? '-'} MAD</Badge>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </Panel>
 
-        <Panel title="Repartition des packs">
-          <div className="grid gap-3">
-            {packDistribution.map((item) => (
-              <div key={item.label} className="flex items-center justify-between rounded-2xl border border-[#dfe8df] bg-[#f7f8f6] px-4 py-3">
-                <span className="text-sm font-bold text-slate-700">{item.label}</span>
-                <span className="text-lg font-black text-[#1d252b]">{item.value}</span>
+          <Panel title="Activite recente" subtitle="Dernieres analyses effectuees par les utilisateurs.">
+            <div className="grid gap-3">
+              {recentAnalyses.length === 0 ? <Empty>Aucune activite recente.</Empty> : null}
+              {recentAnalyses.map((analysis) => (
+                <article key={analysis.id} className="rounded-2xl border border-[#dfe8df] bg-[#f7f8f6] p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="truncate font-black text-[#1d252b]">{analysis.productName}</p>
+                      <p className="mt-1 truncate text-sm font-semibold text-slate-500">
+                        {analysis.userName} - {analysis.userEmail || '-'}
+                      </p>
+                    </div>
+                    <Badge>{analysis.status}</Badge>
+                  </div>
+                  <p className="mt-3 text-xs font-semibold text-slate-500">{formatDateTime(analysis.createdAt)}</p>
+                </article>
+              ))}
+            </div>
+          </Panel>
+        </div>
+
+        <div className="grid gap-6">
+          <Panel title="Repartition des packs" subtitle="Etat courant des types de packs utilisateurs.">
+            <div className="grid gap-3">
+              {packDistribution.length === 0 ? <Empty>Aucune donnee de packs disponible.</Empty> : null}
+              {packDistribution.map((item) => (
+                <div key={item.label} className="flex items-center justify-between gap-4 rounded-2xl border border-[#dfe8df] bg-[#f7f8f6] px-4 py-3">
+                  <span className="min-w-0 truncate text-sm font-bold text-slate-700">{item.label}</span>
+                  <span className="shrink-0 text-lg font-black text-[#1d252b]">{item.value}</span>
+                </div>
+              ))}
+            </div>
+          </Panel>
+
+          <AdminChartCard title="Scans par statut" subtitle="Repartition globale des resultats">
+            {stats.scansByStatus?.length ? (
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={stats.scansByStatus} dataKey="count" nameKey="status" innerRadius={58} outerRadius={92} paddingAngle={3}>
+                      {stats.scansByStatus.map((item, index) => (
+                        <Cell key={item.status} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
-            ))}
-          </div>
-        </Panel>
-      </section>
-
-      <section className="grid gap-5 xl:grid-cols-[1fr_0.9fr]">
-        <Panel title="Activite recente">
-          <div className="grid gap-3">
-            {dashboard.latestAnalyses.slice(0, 5).length === 0 ? <Empty>Aucune analyse enregistree.</Empty> : null}
-            {dashboard.latestAnalyses.slice(0, 5).map((analysis) => (
-              <article key={analysis.id} className="rounded-2xl border border-[#dfe8df] bg-[#f7f8f6] p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="font-black text-[#1d252b]">{analysis.productName}</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-500">{analysis.userName} - {analysis.userEmail || '-'}</p>
-                  </div>
-                  <Badge>{analysis.status}</Badge>
-                </div>
-                <p className="mt-3 text-xs font-semibold text-slate-500">{formatDateTime(analysis.createdAt)}</p>
-              </article>
-            ))}
-          </div>
-        </Panel>
-
-        <AdminChartCard title="Scans par statut" subtitle="Repartition globale des resultats">
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={stats.scansByStatus} dataKey="count" nameKey="status" innerRadius={58} outerRadius={92} paddingAngle={3}>
-                  {stats.scansByStatus.map((item, index) => (
-                    <Cell key={item.status} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </AdminChartCard>
+            ) : (
+              <Empty>Aucune donnee de scans disponible.</Empty>
+            )}
+          </AdminChartCard>
+        </div>
       </section>
     </div>
   );
 }
 
-function Panel({ title, children }) {
+function KpiSection({ title, subtitle, cards, columns = 'xl:grid-cols-4' }) {
   return (
-    <section className="rounded-[1.25rem] border border-[#dfe8df] bg-white p-5 shadow-sm">
+    <section className="space-y-4">
+      <SectionHeading title={title} subtitle={subtitle} />
+      <div className={`grid gap-4 sm:grid-cols-2 ${columns}`}>
+        {cards.map((card, index) => (
+          <AdminStatCard key={card.label} {...card} delay={index * 40} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function SectionHeading({ title, subtitle }) {
+  return (
+    <div>
       <h2 className="text-lg font-extrabold text-[#1d252b]">{title}</h2>
-      <div className="mt-4">{children}</div>
+      <p className="mt-1 text-sm font-semibold text-slate-500">{subtitle}</p>
+    </div>
+  );
+}
+
+function Panel({ title, subtitle, children }) {
+  return (
+    <section className="admin-card p-6">
+      <h2 className="text-lg font-extrabold text-[#1d252b]">{title}</h2>
+      {subtitle ? <p className="mt-1 text-sm font-semibold text-slate-500">{subtitle}</p> : null}
+      <div className="mt-5">{children}</div>
     </section>
   );
 }
 
 function Badge({ children }) {
-  return <span className="rounded-full border border-[#dfe8df] bg-white px-3 py-1 text-xs font-black text-slate-600">{children}</span>;
+  return <span className="inline-flex max-w-full rounded-full border border-[#dfe8df] bg-white px-3 py-1 text-xs font-black text-slate-600">{children}</span>;
 }
 
 function Empty({ children }) {
-  return <p className="rounded-2xl border border-[#dfe8df] bg-[#f7f8f6] p-5 text-center text-sm font-bold text-slate-500">{children}</p>;
+  return <p className="rounded-2xl border border-dashed border-[#cbdccb] bg-[#f7f8f6] p-6 text-center text-sm font-bold text-slate-500">{children}</p>;
 }
 
 function formatDateTime(value) {
