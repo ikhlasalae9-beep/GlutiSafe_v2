@@ -1,12 +1,22 @@
 import { RotateCcw, ShieldCheck } from 'lucide-react';
 
-export default function ExtractedTextEditor({ title = 'Texte détecté', text, onChange, onAnalyze, onReset, loading }) {
+export default function ExtractedTextEditor({
+  title = 'Texte détecté',
+  text,
+  onChange,
+  onAnalyze,
+  onReset,
+  loading,
+  hideAnalyze = false,
+  analyzeLabel = 'Analyser les ingrédients',
+  helper = 'Vérifiez les ingrédients lus ou saisissez-les manuellement avant l’analyse.',
+}) {
   return (
     <div className="soft-card p-5">
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h3 className="text-xl font-extrabold text-[#1d252b]">{title}</h3>
-          <p className="mt-1 text-sm text-slate-600">Vérifiez les ingrédients lus ou saisissez-les manuellement avant l’analyse.</p>
+          <p className="mt-1 text-sm text-slate-600">{helper}</p>
         </div>
         <span className="text-xs font-bold uppercase tracking-[0.14em] text-[#008f45]">{String(text || '').length} caractères</span>
       </div>
@@ -19,10 +29,12 @@ export default function ExtractedTextEditor({ title = 'Texte détecté', text, o
         aria-label={title}
       />
       <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-        <button type="button" onClick={onAnalyze} disabled={loading || !String(text || '').trim()} className="primary-btn flex-1">
-          <ShieldCheck size={19} aria-hidden="true" />
-          {loading ? 'Analyse en cours...' : 'Analyser les ingrédients'}
-        </button>
+        {!hideAnalyze ? (
+          <button type="button" onClick={onAnalyze} disabled={loading || !String(text || '').trim()} className="primary-btn flex-1">
+            <ShieldCheck size={19} aria-hidden="true" />
+            {loading ? 'Analyse des ingrédients en cours...' : analyzeLabel}
+          </button>
+        ) : null}
         <button type="button" onClick={onReset} className="secondary-btn">
           <RotateCcw size={18} aria-hidden="true" />
           Réinitialiser

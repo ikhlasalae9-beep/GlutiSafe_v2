@@ -1,7 +1,7 @@
 const STEP_LABELS = [
   'Préparation de l’image...',
   'Lecture de l’étiquette...',
-  'Vérification des ingrédients...',
+  'Vérification du texte...',
   'Résultat prêt',
 ];
 

@@ -1,6 +1,6 @@
 import { Camera, ImagePlus, ScanText, UploadCloud } from 'lucide-react';
 
-export default function ImageUploader({ mode, preview, isExtracting, onFileChange, onExtract, onCameraOpen }) {
+export default function ImageUploader({ mode, preview, isExtracting, showReadButton = true, onFileChange, onExtract, onCameraOpen }) {
   const isCamera = mode === 'camera';
 
   return (
@@ -12,7 +12,7 @@ export default function ImageUploader({ mode, preview, isExtracting, onFileChang
           </span>
           <h3 className="mt-5 text-xl font-extrabold text-[#1d252b]">Prendre une photo</h3>
           <p className="mt-2 max-w-sm text-sm leading-6 text-slate-600">Utilisez une photo nette et proche de la liste des ingrédients.</p>
-          <button type="button" onClick={onCameraOpen} className="primary-btn mt-5">
+          <button type="button" onClick={onCameraOpen} disabled={isExtracting} className="primary-btn mt-5">
             <Camera className="h-4 w-4" aria-hidden="true" />
             Prendre une photo
           </button>
@@ -28,7 +28,7 @@ export default function ImageUploader({ mode, preview, isExtracting, onFileChang
             <ImagePlus className="h-4 w-4" aria-hidden="true" />
             Importer une image
           </span>
-          <input type="file" accept="image/*" onChange={onFileChange} className="sr-only" />
+          <input type="file" accept="image/*" onChange={onFileChange} disabled={isExtracting} className="sr-only" />
         </label>
       )}
 
@@ -43,10 +43,12 @@ export default function ImageUploader({ mode, preview, isExtracting, onFileChang
             </div>
           </div>
         )}
-        <button type="button" onClick={onExtract} disabled={!preview || isExtracting} className="primary-btn mt-4 w-full">
-          <ScanText size={19} aria-hidden="true" />
-          {isExtracting ? 'Lecture en cours...' : 'Lire l’étiquette'}
-        </button>
+        {showReadButton ? (
+          <button type="button" onClick={onExtract} disabled={!preview || isExtracting} className="primary-btn mt-4 w-full">
+            <ScanText size={19} aria-hidden="true" />
+            {isExtracting ? 'Lecture en cours...' : 'Lire l’étiquette'}
+          </button>
+        ) : null}
       </div>
     </div>
   );

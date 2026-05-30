@@ -34,6 +34,8 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
   const [saveStatus, setSaveStatus] = useState('');
   const [saved, setSaved] = useState(false);
   const [explanationLoading, setExplanationLoading] = useState(false);
+  const [flowState, setFlowState] = useState('idle');
+  const [editingAfterResult, setEditingAfterResult] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [tokenInfo, setTokenInfo] = useState(null);
   const selectedImageRef = useRef(null);
@@ -90,6 +92,8 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
     setSaveStatus('');
     setSaved(false);
     setExplanationLoading(false);
+    setFlowState('idle');
+    setEditingAfterResult(false);
     setIsExtracting(false);
     setIsAnalyzing(false);
     onResult(null);
@@ -116,6 +120,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
     selectedImageRef.current = selected;
     resetAnalysisState();
     setFile(selected);
+    setFlowState('image_selected');
     setPreview(dataUrl || URL.createObjectURL(selected));
     setImageData(dataUrl || '');
     const nextPreview = dataUrl || (await fileToDataUrl(selected));
@@ -140,6 +145,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
 
     console.time('[ANALYSE] total');
     setIsExtracting(true);
+    setFlowState('reading_label');
     processingImageKeyRef.current = imageKey;
     setText('');
     setOcrError('');
@@ -171,12 +177,13 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
       setText(extracted);
       if (extracted.trim().length >= 5) {
         setOcrEngine('done');
-        setProgress(72);
-        setProgressStep('Vérification des ingrédients...');
-        showVerdictImmediately(extracted, { usage, selectionId: extractionSelectionId, imageFile: selectedImage });
+        setProgress(82);
+        setProgressStep('Vérification du texte...');
+        setFlowState('label_read');
       } else {
         setOcrEngine('');
         setProgress(0);
+        setFlowState('error');
         setOcrError('Nous n’avons pas pu lire suffisamment de texte sur cette image. Essayez une photo plus proche et plus nette, ou saisissez les ingrédients manuellement.');
       }
       if (extracted.trim().length >= 5 && result.lowConfidence) {
@@ -195,6 +202,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
       }
       setProgress(0);
       setProgressStep('');
+      setFlowState('error');
     } finally {
       if (extractionSelectionId === imageSelectionIdRef.current) {
         setIsExtracting(false);
@@ -213,7 +221,16 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
     setProgressStep('');
     setSaveStatus('');
     setExplanationLoading(false);
+    setFlowState('idle');
+    setEditingAfterResult(false);
     onResult(null);
+  }
+
+  function handleTextChange(nextText) {
+    setText(nextText);
+    if (method === 'manual' && !latestResult) {
+      setFlowState(String(nextText || '').trim() ? 'label_read' : 'idle');
+    }
   }
 
   async function handleAnalyze() {
@@ -226,6 +243,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
 
     console.time('[ANALYSE] total');
     setIsAnalyzing(true);
+    setFlowState('analyzing');
     setAnalysisError('');
     setTokenLimitInfo(null);
     setSaveWarning('');
@@ -246,6 +264,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
       } else {
         setAnalysisError(error.message || "Impossible d'analyser les ingrédients pour le moment.");
       }
+      setFlowState('error');
     } finally {
       if (analysisSelectionId === imageSelectionIdRef.current) {
         setIsAnalyzing(false);
@@ -264,6 +283,8 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
     const isPaid = Boolean(usage.isPaid);
     setProgress(100);
     setProgressStep('Résultat prêt');
+    setFlowState('result_ready');
+    setEditingAfterResult(false);
     setExplanationLoading(isPaid);
     saveChatbotScanContext(result, analysisText);
     onResult({
@@ -303,6 +324,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
     }
 
     try {
+      if (selectionId === imageSelectionIdRef.current) setFlowState('save_pending');
       console.time('[ANALYSE] save_history');
       const savedAnalysis = await logCompletedScan({ result: finalResult, text: analysisText, inputType: method, productName, imageFile });
       if (selectionId !== imageSelectionIdRef.current) return;
@@ -312,6 +334,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
         setSaveStatus('');
       } else {
         setSaveStatus('Analyse enregistrée.');
+        setFlowState('saved');
       }
       onResult((current) => current ? {
         ...current,
@@ -331,6 +354,17 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
     if (!latestResult) return;
     setSaved(true);
   }
+
+  function handleEditAfterResult() {
+    setEditingAfterResult(true);
+    setFlowState('label_read');
+    setSaveStatus('');
+  }
+
+  const resultReady = Boolean(latestResult);
+  const showReadButton = isImageMode && !resultReady && !isExtracting && Boolean(preview);
+  const showAnalyzeButton = !resultReady || editingAfterResult;
+  const showTextEditor = method === 'manual' || Boolean(text) || Boolean(ocrError) || Boolean(ocrWarning) || editingAfterResult;
 
   return (
     <section className="page-shell page-section">
@@ -371,6 +405,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
                     mode={method}
                     preview={preview}
                     isExtracting={isExtracting}
+                    showReadButton={showReadButton || (flowState === 'label_read' && !resultReady)}
                     onFileChange={handleFileChange}
                     onExtract={handleExtract}
                     onCameraOpen={() => setCameraOpen(true)}
@@ -390,19 +425,35 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
                       retryDisabled={isExtracting || !file}
                     />
                   ) : null}
-                  {(text || ocrError || ocrWarning) && (
-                    <ExtractedTextEditor text={text} onChange={setText} onAnalyze={handleAnalyze} onReset={resetAll} loading={isAnalyzing} />
-                  )}
+                  {showTextEditor && !resultReady ? (
+                    <ExtractedTextEditor text={text} onChange={handleTextChange} onAnalyze={handleAnalyze} onReset={resetAll} loading={isAnalyzing} hideAnalyze={!showAnalyzeButton} />
+                  ) : null}
+                  {editingAfterResult ? (
+                    <ExtractedTextEditor
+                      title="Modifier le texte"
+                      text={text}
+                      onChange={handleTextChange}
+                      onAnalyze={handleAnalyze}
+                      onReset={resetAll}
+                      loading={isAnalyzing}
+                      analyzeLabel="Relancer l’analyse"
+                      helper="Corrigez le texte détecté, puis relancez l’analyse pour remplacer le résultat actuel."
+                    />
+                  ) : null}
                 </>
               ) : (
-                <ExtractedTextEditor
-                  title="Saisie manuelle"
-                  text={text}
-                  onChange={setText}
-                  onAnalyze={handleAnalyze}
-                  onReset={resetAll}
-                  loading={isAnalyzing}
-                />
+                !resultReady || editingAfterResult ? (
+                  <ExtractedTextEditor
+                    title={editingAfterResult ? 'Modifier le texte' : 'Saisie manuelle'}
+                    text={text}
+                    onChange={handleTextChange}
+                    onAnalyze={handleAnalyze}
+                    onReset={resetAll}
+                    loading={isAnalyzing}
+                    analyzeLabel={editingAfterResult ? 'Relancer l’analyse' : 'Analyser les ingrédients'}
+                    helper={editingAfterResult ? 'Corrigez le texte, puis relancez l’analyse pour remplacer le résultat actuel.' : undefined}
+                  />
+                ) : null
               )}
               {tokenLimitInfo ? (
                 <FreeLimitCard usage={tokenLimitInfo} onNavigate={onNavigate} />
@@ -427,8 +478,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
               explanationLoading={latestResult.explanationLoading ?? explanationLoading}
               text={latestResult.text}
               showAiExplanation={latestResult.showAiExplanation ?? Boolean(tokenInfo?.isPaid)}
-              onSave={handleSave}
-              saved={saved}
+              onEditText={handleEditAfterResult}
               onNew={resetAll}
               onHistory={() => onNavigate?.('/history')}
             />

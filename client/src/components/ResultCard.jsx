@@ -1,4 +1,4 @@
-import { Bot, Lock, RefreshCw, Save, ShieldCheck } from 'lucide-react';
+import { Bot, Edit3, Lock, RefreshCw, Save, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { confidenceLabel, getStatusStyle } from '../lib/status.js';
 import RiskBadges from './RiskBadges.jsx';
@@ -13,6 +13,7 @@ export default function ResultCard({
   saved,
   onNew,
   onHistory,
+  onEditText,
   showAiExplanation = true,
   explanationLoading = false,
 }) {
@@ -110,23 +111,29 @@ export default function ResultCard({
           GlutiSafe aide à lire une étiquette, mais ne remplace pas la vérification de l'emballage officiel ni les informations du fabricant.
         </p>
 
-        {(onSave || onNew || onHistory) && (
+        {(onSave || onNew || onHistory || onEditText) && (
           <div className="flex flex-col gap-3 sm:flex-row">
-            {onSave ? (
-              <button type="button" onClick={onSave} disabled={saved} className="primary-btn">
-                <Save className="h-4 w-4" aria-hidden="true" />
-                {saved ? 'Analyse sauvegardée' : 'Sauvegarder'}
-              </button>
-            ) : null}
             {onNew ? (
-              <button type="button" onClick={onNew} className="secondary-btn">
+              <button type="button" onClick={onNew} className="primary-btn">
                 <RefreshCw className="h-4 w-4" aria-hidden="true" />
                 Nouvelle analyse
+              </button>
+            ) : null}
+            {onEditText ? (
+              <button type="button" onClick={onEditText} className="secondary-btn">
+                <Edit3 className="h-4 w-4" aria-hidden="true" />
+                Modifier le texte
               </button>
             ) : null}
             {onHistory ? (
               <button type="button" onClick={onHistory} className="ghost-btn">
                 Voir l'historique
+              </button>
+            ) : null}
+            {onSave ? (
+              <button type="button" onClick={onSave} disabled={saved} className="ghost-btn">
+                <Save className="h-4 w-4" aria-hidden="true" />
+                {saved ? 'Analyse sauvegardée' : 'Sauvegarder'}
               </button>
             ) : null}
           </div>
