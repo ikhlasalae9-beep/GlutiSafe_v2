@@ -14,6 +14,7 @@ export default function ResultCard({
   onNew,
   onHistory,
   showAiExplanation = true,
+  explanationLoading = false,
 }) {
   const normalizedAnalysis = analysis || legacyAnalysis(status, ingredients);
   const style = getStatusStyle(normalizedAnalysis.status);
@@ -70,7 +71,7 @@ export default function ResultCard({
               <div className="min-w-0">
                 <p className="text-lg font-extrabold text-[#1d252b]">Explication détaillée</p>
                 <p className="mt-2 text-sm leading-7 text-slate-600">
-                  {explanation || normalizedAnalysis.message || 'Aucune explication disponible pour cette analyse.'}
+                  {explanationLoading ? 'Préparation de l’explication détaillée...' : explanation || normalizedAnalysis.message || 'Aucune explication disponible pour cette analyse.'}
                 </p>
               </div>
             </div>

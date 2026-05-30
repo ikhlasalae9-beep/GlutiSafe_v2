@@ -1,9 +1,10 @@
 ﻿import { AlertTriangle, CheckCircle2, Keyboard, ScanLine, ShieldCheck } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { fullAnalysis } from '../lib/api.js';
+import { explainAnalysis } from '../lib/api.js';
 import { extractTextWithEasyOCR } from '../lib/ocrApi.js';
 import { assertCanAnalyze, formatTokenReset, getTokenSnapshot } from '../lib/packUsage.js';
 import { logCompletedScan } from '../lib/scanStats.js';
+import { analyzeIngredients } from '../server/glutenRules.js';
 import CameraCapture from './CameraCapture.jsx';
 import ExtractedTextEditor from './ExtractedTextEditor.jsx';
 import ImageUploader from './ImageUploader.jsx';
@@ -21,6 +22,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
   const [imageData, setImageData] = useState('');
   const [text, setText] = useState('');
   const [progress, setProgress] = useState(0);
+  const [progressStep, setProgressStep] = useState('');
   const [ocrError, setOcrError] = useState('');
   const [ocrWarning, setOcrWarning] = useState('');
   const [ocrEngine, setOcrEngine] = useState('');
@@ -29,13 +31,25 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
   const [analysisError, setAnalysisError] = useState('');
   const [tokenLimitInfo, setTokenLimitInfo] = useState(null);
   const [saveWarning, setSaveWarning] = useState('');
+  const [saveStatus, setSaveStatus] = useState('');
   const [saved, setSaved] = useState(false);
+  const [explanationLoading, setExplanationLoading] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [tokenInfo, setTokenInfo] = useState(null);
   const selectedImageRef = useRef(null);
   const imageSelectionIdRef = useRef(0);
+  const readingAbortRef = useRef(null);
+  const processingImageKeyRef = useRef('');
+  const sessionImageCacheRef = useRef(new Map());
 
   const isImageMode = useMemo(() => method === 'upload' || method === 'camera', [method]);
+
+  function abortCurrentReading() {
+    if (readingAbortRef.current) {
+      readingAbortRef.current.abort();
+      readingAbortRef.current = null;
+    }
+  }
 
   useEffect(() => {
     let active = true;
@@ -52,6 +66,9 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
 
   function resetAll() {
     imageSelectionIdRef.current += 1;
+    abortCurrentReading();
+    processingImageKeyRef.current = '';
+    sessionImageCacheRef.current.clear();
     selectedImageRef.current = null;
     setFile(null);
     setProductName('');
@@ -63,13 +80,16 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
   function resetAnalysisState() {
     setText('');
     setProgress(0);
+    setProgressStep('');
     setOcrError('');
     setOcrWarning('');
     setOcrEngine('');
     setAnalysisError('');
     setTokenLimitInfo(null);
     setSaveWarning('');
+    setSaveStatus('');
     setSaved(false);
+    setExplanationLoading(false);
     setIsExtracting(false);
     setIsAnalyzing(false);
     onResult(null);
@@ -90,11 +110,16 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
   async function setSelectedImage(selected, dataUrl) {
     const selectionId = imageSelectionIdRef.current + 1;
     imageSelectionIdRef.current = selectionId;
+    abortCurrentReading();
+    processingImageKeyRef.current = '';
+    sessionImageCacheRef.current.clear();
     selectedImageRef.current = selected;
     resetAnalysisState();
+    setFile(selected);
+    setPreview(dataUrl || URL.createObjectURL(selected));
+    setImageData(dataUrl || '');
     const nextPreview = dataUrl || (await fileToDataUrl(selected));
     if (selectionId !== imageSelectionIdRef.current) return;
-    setFile(selected);
     setPreview(nextPreview);
     setImageData(nextPreview);
   }
@@ -110,27 +135,45 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
       return;
     }
     const extractionSelectionId = imageSelectionIdRef.current;
+    const imageKey = imageCacheKey(selectedImage);
+    if (isExtracting || processingImageKeyRef.current === imageKey) return;
 
+    console.time('[ANALYSE] total');
     setIsExtracting(true);
+    processingImageKeyRef.current = imageKey;
     setText('');
     setOcrError('');
     setOcrWarning('');
     setOcrEngine('');
     setAnalysisError('');
     setTokenLimitInfo(null);
+    setSaveWarning('');
+    setSaveStatus('');
     setSaved(false);
-    setProgress(10);
+    setExplanationLoading(false);
+    setProgress(12);
+    setProgressStep('Préparation de l’image...');
     onResult(null);
 
     try {
-      await assertCanAnalyze();
-      const result = await extractTextWithEasyOCR(selectedImage);
+      const usage = await assertCanAnalyze();
+      let result = sessionImageCacheRef.current.get(imageKey);
+      if (!result) {
+        abortCurrentReading();
+        readingAbortRef.current = new AbortController();
+        setProgress(42);
+        setProgressStep('Lecture de l’étiquette...');
+        result = await extractTextWithEasyOCR(selectedImage, { signal: readingAbortRef.current.signal });
+        sessionImageCacheRef.current.set(imageKey, result);
+      }
       if (extractionSelectionId !== imageSelectionIdRef.current || selectedImageRef.current !== selectedImage) return;
       const extracted = result.text;
       setText(extracted);
       if (extracted.trim().length >= 5) {
         setOcrEngine('done');
-        setProgress(100);
+        setProgress(72);
+        setProgressStep('Vérification des ingrédients...');
+        showVerdictImmediately(extracted, { usage, selectionId: extractionSelectionId, imageFile: selectedImage });
       } else {
         setOcrEngine('');
         setProgress(0);
@@ -141,17 +184,22 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
       }
     } catch (error) {
       if (extractionSelectionId !== imageSelectionIdRef.current || selectedImageRef.current !== selectedImage) return;
+      if (error.name === 'AbortError') return;
+      safeTimeEnd('[ANALYSE] total');
       if (error.usage?.packStatus === 'free' && error.usage?.remaining <= 0) {
         setTokenLimitInfo(error.usage);
         setOcrWarning('');
       } else {
         const guidance = error.guidance ? ` ${error.guidance}` : '';
-        setOcrError(`${error.message || 'Nous n’avons pas pu lire suffisamment de texte sur cette image. Essayez une photo plus proche et plus nette, ou saisissez les ingrédients manuellement.'}${guidance}`);
+        setOcrError(`${error.message || 'Lecture de l’étiquette trop longue. Essayez une photo plus nette ou passez à la saisie manuelle.'}${guidance}`);
       }
       setProgress(0);
+      setProgressStep('');
     } finally {
       if (extractionSelectionId === imageSelectionIdRef.current) {
         setIsExtracting(false);
+        processingImageKeyRef.current = '';
+        readingAbortRef.current = null;
       }
     }
   }
@@ -162,38 +210,36 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
     setOcrWarning('');
     setOcrEngine('');
     setProgress(0);
+    setProgressStep('');
+    setSaveStatus('');
+    setExplanationLoading(false);
     onResult(null);
   }
 
   async function handleAnalyze() {
     const analysisSelectionId = imageSelectionIdRef.current;
-    const analysisText = text;
+    const analysisText = text.trim();
+    if (!analysisText) {
+      setAnalysisError('Saisissez les ingrédients avant de lancer l’analyse.');
+      return;
+    }
+
+    console.time('[ANALYSE] total');
     setIsAnalyzing(true);
     setAnalysisError('');
     setTokenLimitInfo(null);
     setSaveWarning('');
+    setSaveStatus('');
     setSaved(false);
+    setExplanationLoading(false);
+    setProgressStep('Vérification des ingrédients...');
 
     try {
       const usage = await assertCanAnalyze();
-      const result = await fullAnalysis(analysisText);
-      if (analysisSelectionId !== imageSelectionIdRef.current) return;
-      const savedAnalysis = await logCompletedScan({ result, text: analysisText, inputType: method, productName, imageFile: file });
-      if (analysisSelectionId !== imageSelectionIdRef.current) return;
-      setTokenInfo(await getTokenSnapshot());
-      if (savedAnalysis?.imageUploadWarning) setSaveWarning(savedAnalysis.imageUploadWarning);
-      saveChatbotScanContext(result, analysisText);
-      onResult({
-        ...result,
-        text: analysisText,
-        inputType: method,
-        imageData,
-        showAiExplanation: Boolean(usage.isPaid),
-        savedAnalysisId: savedAnalysis?.id,
-        productName: savedAnalysis?.productName || productName || 'Produit sans nom',
-      });
+      showVerdictImmediately(analysisText, { usage, selectionId: analysisSelectionId, imageFile: method === 'manual' ? null : file });
     } catch (error) {
       if (analysisSelectionId !== imageSelectionIdRef.current) return;
+      safeTimeEnd('[ANALYSE] total');
       if (error.usage?.packStatus === 'free' && error.usage?.remaining <= 0) {
         setTokenLimitInfo(error.usage);
         setAnalysisError('Vous avez utilisé toutes vos analyses gratuites.');
@@ -204,6 +250,80 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
       if (analysisSelectionId === imageSelectionIdRef.current) {
         setIsAnalyzing(false);
       }
+    }
+  }
+
+  function showVerdictImmediately(analysisText, { usage, selectionId, imageFile }) {
+    console.time('[ANALYSE] gluten_detection');
+    const analysis = analyzeIngredients(analysisText);
+    console.timeEnd('[ANALYSE] gluten_detection');
+
+    if (selectionId !== imageSelectionIdRef.current) return;
+
+    const result = { analysis, explanation: '' };
+    const isPaid = Boolean(usage.isPaid);
+    setProgress(100);
+    setProgressStep('Résultat prêt');
+    setExplanationLoading(isPaid);
+    saveChatbotScanContext(result, analysisText);
+    onResult({
+      ...result,
+      text: analysisText,
+      inputType: method,
+      imageData,
+      showAiExplanation: isPaid,
+      explanationLoading: isPaid,
+      productName: productName || 'Produit sans nom',
+    });
+    safeTimeEnd('[ANALYSE] total');
+    runBackgroundAfterVerdict({ result, text: analysisText, usage, selectionId, imageFile });
+  }
+
+  async function runBackgroundAfterVerdict({ result, text: analysisText, usage, selectionId, imageFile }) {
+    let finalResult = result;
+
+    if (usage.isPaid) {
+      try {
+        console.time('[ANALYSE] ai_explanation');
+        const payload = await explainAnalysis({ analysis: result.analysis, text: analysisText });
+        const explanation = payload.explanation || '';
+        finalResult = { ...result, explanation };
+        if (selectionId === imageSelectionIdRef.current) {
+          setExplanationLoading(false);
+          onResult((current) => current ? { ...current, explanation, explanationLoading: false } : current);
+        }
+      } catch {
+        if (selectionId === imageSelectionIdRef.current) {
+          setExplanationLoading(false);
+          onResult((current) => current ? { ...current, explanationLoading: false } : current);
+        }
+      } finally {
+        safeTimeEnd('[ANALYSE] ai_explanation');
+      }
+    }
+
+    try {
+      console.time('[ANALYSE] save_history');
+      const savedAnalysis = await logCompletedScan({ result: finalResult, text: analysisText, inputType: method, productName, imageFile });
+      if (selectionId !== imageSelectionIdRef.current) return;
+      setTokenInfo(await getTokenSnapshot());
+      if (savedAnalysis?.imageUploadWarning) {
+        setSaveWarning("Résultat affiché. L’image n’a pas pu être enregistrée.");
+        setSaveStatus('');
+      } else {
+        setSaveStatus('Analyse enregistrée.');
+      }
+      onResult((current) => current ? {
+        ...current,
+        savedAnalysisId: savedAnalysis?.id,
+        productName: savedAnalysis?.productName || current.productName || productName || 'Produit sans nom',
+      } : current);
+    } catch {
+      if (selectionId === imageSelectionIdRef.current) {
+        setSaveWarning("Résultat affiché. L’image n’a pas pu être enregistrée.");
+      }
+    } finally {
+      safeTimeEnd('[ANALYSE] save_history');
     }
   }
 
@@ -261,7 +381,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
                       Lecture de l’étiquette terminée
                     </p>
                   ) : null}
-                  <OcrProgress progress={progress} error={ocrError} active={isExtracting} />
+                  <OcrProgress progress={progress} error={ocrError} active={isExtracting} step={progressStep} />
                   {ocrWarning ? (
                     <LabelReadingWarning
                       message={ocrWarning}
@@ -292,6 +412,9 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
               {saveWarning ? (
                 <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">{saveWarning}</p>
               ) : null}
+              {saveStatus ? (
+                <p className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">{saveStatus}</p>
+              ) : null}
             </div>
           </div>
         </div>
@@ -301,6 +424,7 @@ export default function Analyzer({ latestResult, onResult, onNavigate }) {
             <ResultCard
               analysis={latestResult.analysis}
               explanation={latestResult.explanation}
+              explanationLoading={latestResult.explanationLoading ?? explanationLoading}
               text={latestResult.text}
               showAiExplanation={latestResult.showAiExplanation ?? Boolean(tokenInfo?.isPaid)}
               onSave={handleSave}
@@ -342,6 +466,18 @@ function saveChatbotScanContext(result, text) {
     );
   } catch {
     // Chat context is optional; scanning must not depend on storage availability.
+  }
+}
+
+function imageCacheKey(file) {
+  return [file?.name || 'image', file?.size || 0, file?.lastModified || 0].join(':');
+}
+
+function safeTimeEnd(label) {
+  try {
+    console.timeEnd(label);
+  } catch {
+    // Development-only timing guard.
   }
 }
 
